@@ -499,6 +499,11 @@
   }
   $('[data-hello-close]')?.addEventListener('click', hideHello);
   $('[data-ai-close]')?.addEventListener('click', closeAI);
+  // tap outside the panel closes it
+  document.addEventListener('pointerdown', e => {
+    if (!root.classList.contains('ai-open') || e.target.closest('#ai-panel, [data-ai-open], .ai-hello, .toast-host')) return;
+    closeAI();
+  });
   const teaser = $('.ai-teaser');
   if (teaser && 'IntersectionObserver' in window) new IntersectionObserver(([e]) => root.classList.toggle('teaser-in', e.isIntersecting), { threshold: 0.35 }).observe(teaser);
   // hints scroll: wheel, drag and arrows

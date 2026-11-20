@@ -1091,3 +1091,5 @@ body::before {
 .ai-chips-wrap { min-width: 0; overflow: hidden; }
 .ai-msgs { min-width: 0; overflow-x: hidden; }
 .ai-msgs .msg { overflow-wrap: anywhere; }
+.ai-close { border: 1px solid var(--line-strong) !important; flex: none; }
+@media (hover: hover) and (pointer: fine) { .ai-close:hover { background: var(--bg-3) !important; } }

@@ -1094,3 +1094,13 @@ body::before {
 .ai-close { border: 1px solid var(--line-strong) !important; flex: none; }
 @media (hover: hover) and (pointer: fine) { .ai-close:hover { background: var(--bg-3) !important; } }
 .msg--sys { align-self: center; max-width: 92%; background: transparent; border: 1px dashed var(--line-strong); color: var(--muted); font-size: 13px; text-align: center; padding: 8px 14px; border-radius: 12px; }
+/* the demo preview on the home page steps back while the real chat is open */
+.chat-preview { transition: opacity 260ms var(--ease-out), transform 260ms var(--ease-out); }
+.ai-open .chat-preview { opacity: 0; transform: scale(.97); pointer-events: none; }
+/* basket row with a cancel button */
+.ai-cart-row { display: flex; gap: 8px; margin: 0 14px 8px; }
+.ai-cart-row .ai-cart { margin: 0; width: auto; flex: 1; }
+.ai-cart-x { flex: none; width: 44px; height: 44px; border-radius: 14px; border: 1px solid var(--line-strong); background: var(--bg); color: var(--ivory); display: grid; place-items: center; transition: transform 160ms var(--ease-out), border-color 160ms ease, color 160ms ease; }
+.ai-cart-x .icon { width: 16px; height: 16px; }
+.ai-cart-x:active { transform: scale(.92); }
+@media (hover: hover) and (pointer: fine) { .ai-cart-x:hover { border-color: #d9542c; color: #d9542c; } }

@@ -275,10 +275,11 @@
   function renderCartBar() {
     if (!cartBar) return;
     const n = cart.count();
-    cartBar.hidden = !n;
+    const row = cartBar.closest('[data-ai-cart-row]') || cartBar; row.hidden = !n;
     if (n) { $('[data-ai-cart-sum]', cartBar).textContent = `${n} ${tt('шт.')} · ${fmt(cart.total())}`; cartBar.classList.remove('bump'); void cartBar.offsetWidth; cartBar.classList.add('bump'); }
   }
   cartBar?.addEventListener('click', () => ask(tt('Мой заказ')));
+  $('[data-ai-cart-clear]')?.addEventListener('click', () => { cart.clear(); $$('.ai-order').forEach(o => o.innerHTML = `<p>${esc(tt('Заказ отменён.'))}</p>`); toast(tt('Заказ отменён')); });
   const orderText = () => cart.lines().map(l => l.q > 1 ? `${l.d.name} × ${l.q}` : l.d.name).join(', ');
 
   /* ---- free text helpers ---- */
@@ -447,11 +448,11 @@
       if (!lines.length) { box.innerHTML = `<p>${esc(tt('Заказ пуст.'))}</p>`; return; }
       box.innerHTML = lines.map(l => `<div class="ai-order-row" data-id="${l.d.id}"><span>${esc(l.d.name)}</span><span class="qty"><button type="button" data-q="-1" aria-label="−">−</button><b>${l.q}</b><button type="button" data-q="1" aria-label="+">+</button></span><span class="price">${fmt(l.d.price * l.q)}</span></div>`).join('')
         + `<div class="ai-order-total"><span>${esc(tt('Итого'))}</span><b>${fmt(cart.total())}</b></div>`
-        + `<div class="ai-order-actions"><a class="btn" href="contact.html#booking" data-order-book>${esc(tt('Забронировать с этим заказом'))}</a><a class="btn btn--ghost" href="tel:+998909167774">${esc(tt('Заказать доставку'))}</a><button type="button" class="ai-order-copy" data-order-copy>${esc(tt('Скопировать заказ'))}</button><button type="button" class="ai-order-copy" data-order-clear>${esc(tt('Очистить'))}</button></div>`;
+        + `<div class="ai-order-actions"><a class="btn" href="contact.html#booking" data-order-book>${esc(tt('Забронировать с этим заказом'))}</a><a class="btn btn--ghost" href="tel:+998909167774">${esc(tt('Заказать доставку'))}</a><button type="button" class="ai-order-copy" data-order-copy>${esc(tt('Скопировать заказ'))}</button><button type="button" class="mini-btn mini-btn--danger" data-order-clear>${esc(tt('Отменить заказ'))}</button></div>`;
     };
     box.addEventListener('click', e => {
       const q = e.target.closest('[data-q]'); if (q) { cart.add(q.closest('[data-id]').dataset.id, +q.dataset.q); draw(); return; }
-      if (e.target.closest('[data-order-clear]')) { cart.clear(); draw(); return; }
+      if (e.target.closest('[data-order-clear]')) { cart.clear(); draw(); toast(tt('Заказ отменён')); return; }
       if (e.target.closest('[data-order-copy]')) { navigator.clipboard?.writeText(tt('Заказ') + ': ' + orderText() + '. ' + tt('Итого') + ': ' + fmt(cart.total())).then(() => toast(tt('Заказ скопирован — вставьте его в Telegram-бот'))).catch(() => {}); return; }
       if (e.target.closest('[data-order-book]')) store.set('booking_note', tt('Заказ к приходу') + ': ' + orderText());
     });
@@ -478,7 +479,12 @@
     const n = document.createElement('div'); n.className = 'msg msg--sys pop'; n.textContent = text; msgs.append(n); scrollDown(); return n;
   }
   let switchedShown = false;
-  async function callAI(q) {
+  let aiWarm = false, unreachableShown = false;
+  function warmAI() {   // first contact can fail on some networks (QUIC); a cheap OPTIONS ping opens the connection early
+    if (aiWarm || !aiEndpoint()) return; aiWarm = true;
+    fetch(aiEndpoint(), { method: 'OPTIONS' }).catch(() => {});
+  }
+  async function callAI(q, attempt = 0) {
     const ctl = new AbortController(); const to = setTimeout(() => ctl.abort(), 20000);
     try {
       // the whole recent conversation goes along, so a switch to the backup AI forgets nothing
@@ -488,7 +494,11 @@
       if (r.status === 429) return { busy: Math.min(60, Math.max(5, +j.retryAfter || 20)) };
       if (!r.ok || !j.reply) return null;
       return j;
-    } catch { return null; } finally { clearTimeout(to); }
+    } catch {
+      clearTimeout(to);
+      if (attempt < 2) { await sleep(700 * (attempt + 1)); return callAI(q, attempt + 1); }   // network hiccup: retry
+      return { unreachable: true };
+    } finally { clearTimeout(to); }
   }
   async function askAI(q, typing) {
     if (!aiEndpoint()) return null;
@@ -505,6 +515,7 @@
       if (!j || j.busy) { note.textContent = tt('ИИ всё ещё занят — пока отвечу в простом режиме.'); return null; }
       note.remove();
     }
+    if (j?.unreachable) { if (!unreachableShown) { unreachableShown = true; sysNote(tt('Не получается связаться с ИИ — проверьте интернет. Пока отвечаю в простом режиме.')); } return null; }
     if (!j) return null;
     if (j.switched && !switchedShown) { switchedShown = true; sysNote(tt('Основной ИИ на лимите — ответил запасной. Разговор сохранён.')); }
     return { text: j.reply, cards: matchDishes(j.dishes) };
@@ -528,7 +539,7 @@
   function openAI() {
     if (!panel) return;
     lastFocus = document.activeElement;
-    hideHello?.(); document.body.classList.add('ai-open'); root.classList.add('ai-open');
+    hideHello?.(); warmAI(); document.body.classList.add('ai-open'); root.classList.add('ai-open');
     $$('[data-ai-open]').forEach(b => b.setAttribute('aria-expanded', 'true'));
     setTimeout(() => aiInput?.focus({ preventScroll: true }), 120);
     if (!greeted) {

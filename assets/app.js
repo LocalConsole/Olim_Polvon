@@ -440,8 +440,26 @@
       msgs.append(b); scrollDown();
     }
     if (extra.cart) renderOrder();
+    if (extra.go) renderGo(extra.go);
     if (extra.link) { const a = document.createElement('a'); a.className = 'btn btn--cobalt msg pop'; a.style.cssText = 'align-self:flex-start;min-height:44px;font-size:15px'; a.href = extra.link[1]; a.textContent = extra.link[0]; msgs.append(a); scrollDown(); }
     ava?.classList.remove('is-thinking', 'is-talking'); busy = false;
+  }
+  /* ---- admin: the assistant never edits, it only takes you to the right place ---- */
+  function goHref(go) {
+    if (go.to === 'edit') { const n = x => norm(x).replace(/[«»"]/g, ''); const all = getMenu(); const d = all.find(x => n(x.key) === n(go.dish)) || all.find(x => n(x.key + ' ' + (x.alt || '')).includes(n(go.dish))); return d ? { href: `menu.html?admin=edit#${d.id}`, label: tt('Открыть правку: ') + d.name } : null; }
+    if (go.to === 'add') { const c = ['shashlik', 'milliy', 'uygur', 'salat', 'yevropa', 'non', 'ichimlik'].includes(go.cat) ? go.cat : 'milliy'; return { href: `menu.html?admin=add#${c}`, label: tt('Добавить блюдо в раздел') }; }
+    if (go.to === 'tab') { const t = ['bookings', 'menu', 'ai', 'overview'].includes(go.tab) ? go.tab : 'overview'; return { href: `admin.html#${t}`, label: { bookings: tt('Открыть брони'), menu: tt('Открыть меню и стоп-лист'), ai: tt('Открыть настройки помощника'), overview: tt('Открыть панель') }[t] }; }
+    return null;
+  }
+  function renderGo(go) {
+    const g = goHref(go); if (!g) return;
+    const a = document.createElement('a'); a.className = 'btn msg pop ai-go'; a.href = g.href;
+    a.innerHTML = `${esc(g.label)} <svg class="icon" aria-hidden="true"><use href="#i-arrow"/></svg>`;
+    a.addEventListener('click', e => {
+      const u = new URL(a.href, location.href);
+      if (u.pathname === location.pathname) { e.preventDefault(); window.history.replaceState(null, '', u.search + u.hash); closeAI(); runAdminJump(); }
+    });
+    msgs.append(a); scrollDown();
   }
   function renderOrder() {
     const box = document.createElement('div'); box.className = 'ai-order pop';
@@ -520,7 +538,7 @@
       const r = await fetch(url, { method: 'POST', signal: ctl.signal, redirect: 'follow',
         // Apps Script accepts only "simple" requests (no CORS preflight), so send JSON as plain text there
         headers: { 'Content-Type': gas ? 'text/plain;charset=utf-8' : 'application/json' },
-        body: JSON.stringify({ messages: [...history, { role: 'me', text: q }].slice(-12), tone: settings().tone, lang: msgLang(q), memory: memory.get() }) });
+        body: JSON.stringify({ messages: [...history, { role: 'me', text: q }].slice(-12), tone: settings().tone, lang: msgLang(q), memory: memory.get(), admin: isAdmin() }) });
       const j = await r.json().catch(() => ({}));
       if (r.status === 429 || j.error === 'busy') return { busy: Math.min(60, Math.max(5, +j.retryAfter || 20)) };
       if (!r.ok || !j.reply) return { failed: true };
@@ -561,7 +579,18 @@
     if (j.switched && !switchedShown) { switchedShown = true; sysNote(tt('Основной ИИ на лимите — ответил запасной. Разговор сохранён.')); }
     const learned = memory.apply(j.remember, j.forget);
     if (learned.length) setTimeout(() => sysNote(tt('Запомнил на этом устройстве: ') + learned.join(', ') + '. ' + tt('Стереть — кнопка «Забыть меня».')), 400);
-    return { text: j.reply, cards: matchDishes(j.dishes) };
+    let go = isAdmin() ? j.go : null;
+    if (isAdmin() && !go) {
+      // the model sometimes forgets the hint: infer it from the admin's own words
+      const t = norm(q);
+      if (/брон|заявк|bron|booking/.test(t)) go = { to: 'tab', tab: 'bookings' };
+      else if (/добав|нов(ое|ый) блюд|qo'sh|add/.test(t)) go = { to: 'add', cat: '' };
+      else if (/цен|стоп|законч|нет в наличии|убра|удал|перенес|narx|tugadi|price|remove|delete/.test(t)) {
+        const d = getMenu().map(x => x).sort((a, b) => b.key.length - a.key.length).find(x => t.includes(norm(x.key).replace(/[«»"]/g, '').split(',')[0]));
+        if (d) go = { to: 'edit', dish: d.key };
+      }
+    }
+    return { text: j.reply, cards: isAdmin() ? [] : matchDishes(j.dishes), go };
   }
   async function ask(q) {
     if (busy || !q.trim()) return;
@@ -784,6 +813,27 @@
     });
   }
 
+  /* ---------------- admin: arrive from an assistant hint ---------------- */
+  function runAdminJump() {
+    if (!isAdmin()) return;
+    const mode = new URLSearchParams(location.search).get('admin'); const id = decodeURIComponent(location.hash.slice(1));
+    if (!mode || !id) return;
+    setTimeout(() => {
+      if (mode === 'edit') {
+        const li = document.getElementById(id); if (!li) return;
+        li.scrollIntoView({ block: 'center', behavior: reduce ? 'auto' : 'smooth' });
+        li.classList.add('flash'); setTimeout(() => li.classList.remove('flash'), 2200);
+        if (!$('.inline-edit', li)) $('[data-edit]', li)?.click();
+      } else if (mode === 'add') {
+        const sec = document.getElementById(id); if (!sec) return;
+        sec.scrollIntoView({ block: 'start', behavior: reduce ? 'auto' : 'smooth' });
+        $('[data-add-dish]', sec)?.click();
+      }
+      window.history.replaceState(null, '', location.pathname + location.hash);
+    }, 350);
+  }
+  if (root.dataset.page === 'menu') addEventListener('load', runAdminJump);
+
   /* ---------------- admin: add a dish to a section ---------------- */
   document.addEventListener('click', e => {
     const b = e.target.closest('[data-add-dish]'); if (!b || !isAdmin()) return;
@@ -914,6 +964,8 @@
     document.addEventListener('admin-change', show);
 
     const tabs = $$('[role=tab]', app);
+    const fromHash = () => { const t = $('#t-' + location.hash.slice(1), app); if (t) t.click(); };
+    setTimeout(fromHash, 0); addEventListener('hashchange', fromHash);
     tabs.forEach(t => t.addEventListener('click', () => {
       tabs.forEach(x => x.setAttribute('aria-selected', String(x === t)));
       $$('.admin-panel', app).forEach(p => p.hidden = p.id !== t.getAttribute('aria-controls'));

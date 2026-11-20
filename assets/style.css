@@ -1108,3 +1108,7 @@ body::before {
 .ai-forget[data-sure] { color: #d9542c; border-color: #d9542c; }
 @media (hover: hover) and (pointer: fine) { .ai-forget:hover { color: var(--ivory); border-color: var(--gold); } }
 .ai-forget + .ai-close { margin-left: 8px !important; }
+.ai-go { align-self: flex-start; min-height: 42px; font-size: 14px; padding: 0 16px; gap: 8px; text-decoration: none; }
+.ai-go .icon { width: 16px; height: 16px; }
+.menu-item.flash { animation: flash 2.2s var(--ease-out); }
+@keyframes flash { 0%, 40% { box-shadow: 0 0 0 3px var(--gold); } 100% { box-shadow: 0 0 0 0 transparent; } }

@@ -507,7 +507,7 @@
       memory.set([...m, ...fresh]); return fresh;
     },
   };
-  if (aiEndpoint()) { const f = $('.ai-foot'); if (f) f.textContent = tt('Отвечает ИИ. Может ошибаться — уточняйте у администратора.'); }
+  if (aiEndpoint()) { const f = $('.ai-foot'); if (f) f.textContent = tt('Отвечает ИИ, может ошибаться. Переписка хранится только на этом устройстве — не пишите сюда личные данные.'); }
   function matchDishes(names) {
     const m = getMenu().filter(d => !d.stop); const n = s => norm(s).replace(/[«»"]/g, '');
     return (names || []).map(x => m.find(d => n(d.key) === n(x)) || m.find(d => n(d.key + ' ' + (d.alt || '')).includes(n(x)))).filter((d, i, a) => d && a.indexOf(d) === i);
@@ -620,17 +620,20 @@
     try { localStorage.setItem('polvon_chat', JSON.stringify({ t: Date.now(), m: history })); } catch {}
     await botReply(r.text, r);
   }
+  function greet() {
+    if (greeted) return; greeted = true; renderChips();
+    if (history.length) { history.forEach(m => addMsg(m.role === 'me' ? 'me' : 'bot', m.text)); sysNote(tt('Продолжаем с того места, где остановились.')); }
+    else botReply(settings().greeting);
+  }
   function openAI() {
     if (!panel) return;
+    // on the home page the chat may already sit inside the "Не знаете, что выбрать?" block
+    if (panel.classList.contains('ai-panel--inline')) { panel.scrollIntoView({ block: 'center', behavior: reduce ? 'auto' : 'smooth' }); setTimeout(() => aiInput?.focus({ preventScroll: true }), 300); return; }
     lastFocus = document.activeElement;
     hideHello?.(); warmAI(); document.body.classList.add('ai-open'); root.classList.add('ai-open');
     $$('[data-ai-open]').forEach(b => b.setAttribute('aria-expanded', 'true'));
     setTimeout(() => aiInput?.focus({ preventScroll: true }), 120);
-    if (!greeted) {
-      greeted = true; renderChips();
-      if (history.length) { history.forEach(m => addMsg(m.role === 'me' ? 'me' : 'bot', m.text)); sysNote(tt('Продолжаем с того места, где остановились.')); }
-      else botReply(settings().greeting);
-    }
+    greet();
   }
   function closeAI() {
     root.classList.remove('ai-open'); document.body.classList.remove('ai-open');
@@ -675,6 +678,22 @@
   });
   const teaser = $('.ai-teaser');
   if (teaser && 'IntersectionObserver' in window) new IntersectionObserver(([e]) => root.classList.toggle('teaser-in', e.isIntersecting), { threshold: 0.35 }).observe(teaser);
+  // live chat inside the home-page block: the same panel moves in while the block is on screen
+  const slot = $('[data-chat-preview]'); const home = panel?.parentNode, homeNext = panel?.nextSibling;
+  if (slot && panel && 'IntersectionObserver' in window) {
+    const mountInline = () => {
+      if (panel.classList.contains('ai-panel--inline') || root.classList.contains('ai-open')) return;
+      slot.after(panel); panel.classList.add('ai-panel--inline'); root.classList.add('ai-inline');
+      panel.setAttribute('role', 'region'); warmAI(); greet();
+    };
+    const unmountInline = () => {
+      if (!panel.classList.contains('ai-panel--inline')) return;
+      if (panel.contains(document.activeElement)) return;        // the guest is typing: keep it in place
+      panel.classList.remove('ai-panel--inline'); root.classList.remove('ai-inline');
+      panel.setAttribute('role', 'dialog'); home.insertBefore(panel, homeNext);
+    };
+    new IntersectionObserver(([e]) => e.isIntersecting ? mountInline() : unmountInline(), { rootMargin: '200px 0px' }).observe(slot.parentElement);
+  }
   // hints scroll: wheel, drag and arrows
   const chipWrap = $('.ai-chips-wrap');
   if (chipWrap && chipsBox) {

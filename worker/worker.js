@@ -10,6 +10,7 @@ const ADMIN = "РЕЖИМ АДМИНИСТРАТОРА: сейчас пишет 
 const DEFAULT_ORIGINS = ["https://localconsole.github.io"];
 const TONES = { warm: "тёплый и весёлый, как описано в ХАРАКТЕРЕ", short: "коротко и по делу, шутки реже", fun: "максимально весело, с шутками и поговорками" };
 const hits = new Map(); // best-effort per-IP limit (per isolate)
+let GEM_OK = null;      // last Gemini model/config that answered
 
 function cors(origin, allowed) {
   const ok = allowed.includes("*") || allowed.includes(origin) || /\.claudeusercontent\.com$|\.claude\.ai$/.test(new URL(origin || "http://x").hostname);
@@ -63,11 +64,19 @@ export default {
     });
     let raw = "", err = "", provider = "", retryAfter = 0, limited = false;
     if (env.AI_KEY) {
+      // fastest working combo is cached per isolate: model + "thinking off" setting
+      const tries = [];
+      for (const model of [env.MODEL, "gemini-3.5-flash-lite", "gemini-flash-latest"].filter(Boolean))
+        for (const think of [{ thinkingLevel: "minimal" }, { thinkingBudget: 0 }, null]) tries.push({ model, think });
+      const order = GEM_OK ? [GEM_OK, ...tries] : tries;
       let r;
-      for (const model of [env.MODEL, "gemini-3.5-flash-lite", "gemini-flash-latest"].filter(Boolean)) {
-        r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
-          method: "POST", headers: { "Content-Type": "application/json", "x-goog-api-key": env.AI_KEY }, body: payload });
-        if (r.status !== 404) break;   // unknown model name: try the next one
+      for (const t of order) {
+        const p = JSON.parse(payload); if (t.think) p.generationConfig.thinkingConfig = t.think;
+        r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${t.model}:generateContent`, {
+          method: "POST", headers: { "Content-Type": "application/json", "x-goog-api-key": env.AI_KEY }, body: JSON.stringify(p) });
+        if (r.ok) { GEM_OK = t; break; }
+        if (![400, 404].includes(r.status)) break;   // 404 unknown model, 400 unsupported thinking option: try next
+        if (t === GEM_OK) GEM_OK = null;
       }
       if (r.ok) { const data = await r.json(); raw = data?.candidates?.[0]?.content?.parts?.map(p => p.text || "").join("") || ""; if (raw) provider = "gemini"; }
       else { err = "gemini " + r.status + ": " + (await r.text()).slice(0, 200); if (r.status === 429) { limited = true; retryAfter = +(r.headers.get("retry-after") || 0); } }

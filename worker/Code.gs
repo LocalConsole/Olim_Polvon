@@ -52,11 +52,18 @@ function handle_(body) {
     msgs[msgs.length - 1] = { role: "user", parts: [{ text: last + "\n\n" + NOTE }] };
     let raw = "", err = "", provider = "", retryAfter = 0, limited = false;
     if (AI_KEY) {
-      const payload = { systemInstruction: { parts: [{ text: SYS }] }, contents: msgs, generationConfig: { temperature: 0.7, maxOutputTokens: 900, responseMimeType: "application/json" } };
+      const tries = [];
+      [MODEL, "gemini-3.5-flash-lite", "gemini-flash-latest"].filter(Boolean).forEach(model =>
+        [{ thinkingLevel: "minimal" }, { thinkingBudget: 0 }, null].forEach(think => tries.push({ model: model, think: think })));
+      const okRaw = cache.get("gem_ok"); const ok = okRaw ? JSON.parse(okRaw) : null;
+      const order = ok ? [ok].concat(tries) : tries;
       let r;
-      for (const model of [MODEL, "gemini-3.5-flash-lite", "gemini-flash-latest"].filter(Boolean)) {
-        r = post_("https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent", { "x-goog-api-key": AI_KEY }, payload);
-        if (r.status !== 404) break;
+      for (const t of order) {
+        const payload = { systemInstruction: { parts: [{ text: SYS }] }, contents: msgs, generationConfig: { temperature: 0.7, maxOutputTokens: 900, responseMimeType: "application/json" } };
+        if (t.think) payload.generationConfig.thinkingConfig = t.think;
+        r = post_("https://generativelanguage.googleapis.com/v1beta/models/" + t.model + ":generateContent", { "x-goog-api-key": AI_KEY }, payload);
+        if (r.status === 200) { cache.put("gem_ok", JSON.stringify(t), 21600); break; }
+        if ([400, 404].indexOf(r.status) < 0) break;
       }
       if (r.status === 200) { const d = JSON.parse(r.text); raw = ((d.candidates || [])[0]?.content?.parts || []).map(p => p.text || "").join(""); if (raw) provider = "gemini"; }
       else { err = "gemini " + r.status + ": " + r.text.slice(0, 200); if (r.status === 429) { limited = true; retryAfter = r.retry; } }

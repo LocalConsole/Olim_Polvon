@@ -490,7 +490,9 @@
   // one or more addresses, comma separated: Cloudflare Worker first, Google Apps Script as a backup
   const aiEndpoints = () => (store.get('ai', {}).endpoint || panel?.dataset.aiEndpoint || '').split(/[\s,]+/).map(x => x.trim()).filter(Boolean);
   const aiEndpoint = () => aiEndpoints()[0] || '';
-  let goodEp = (() => { try { return sessionStorage.getItem('polvon_ai_ep') || ''; } catch { return ''; } })();
+  // the address that answered last time is remembered for a day
+  let goodEp = (() => { try { const v = JSON.parse(localStorage.getItem('polvon_ai_ep') || 'null'); return v && Date.now() - v.t < 864e5 ? v.u : ''; } catch { return ''; } })();
+  const rememberEp = u => { goodEp = u; try { localStorage.setItem('polvon_ai_ep', JSON.stringify({ u, t: Date.now() })); } catch {} };
   // conversation survives page changes within the visit
   // chat and guest preferences live only on this device (localStorage), chat for 7 days
   const WEEK = 7 * 864e5;
@@ -517,7 +519,8 @@
   let aiWarm = false, unreachableShown = false;
   function warmAI() {   // first contact can fail on some networks (QUIC); a cheap OPTIONS ping opens the connection early
     if (aiWarm || !aiEndpoint()) return; aiWarm = true;
-    aiEndpoints().forEach(u => { if (!/script\.google/.test(u)) fetch(u, { method: 'OPTIONS' }).catch(() => {}); });
+    // open connections early so the first answer comes faster
+    aiEndpoints().forEach(u => fetch(u, { method: /script\.google/.test(u) ? 'GET' : 'OPTIONS', mode: /script\.google/.test(u) ? 'no-cors' : 'cors' }).catch(() => {}));
   }
   // language of a single message: Cyrillic → ru (or uz if Uzbek Cyrillic letters), clear English → en, any other Latin → uz
   function msgLang(t) {
@@ -530,9 +533,10 @@
     const e = (w.match(en) || []).length, u = (w.match(uz) || []).length;
     return e > u ? 'en' : 'uz';
   }
-  async function callOne(url, q) {
+  async function callOne(url, q, outer) {
     const gas = /script\.google/.test(url);
     const ctl = new AbortController(); const to = setTimeout(() => ctl.abort(), gas ? 30000 : 20000);
+    outer?.addEventListener('abort', () => ctl.abort());
     try {
       // the whole recent conversation goes along, so a switch to the backup AI forgets nothing
       const r = await fetch(url, { method: 'POST', signal: ctl.signal, redirect: 'follow',
@@ -546,18 +550,26 @@
     } catch { return { unreachable: true }; } finally { clearTimeout(to); }
   }
   async function callAI(q) {
-    // try the address that worked last time first, then the others; each gets one quick retry
     const list = aiEndpoints(); if (goodEp && list.includes(goodEp)) list.sort((a, b) => (b === goodEp) - (a === goodEp));
-    let last = { unreachable: true };
-    for (const url of list) {
-      for (let attempt = 0; attempt < 2; attempt++) {
-        const j = await callOne(url, q);
-        if (j.reply || j.busy) { if (j.reply) { goodEp = url; try { sessionStorage.setItem('polvon_ai_ep', url); } catch {} } return j; }
-        last = j; if (!j.unreachable) break;
-        await sleep(600);
-      }
-    }
-    return last.unreachable ? last : null;
+    // race: start with the preferred address; if it is silent for 2.5 s (blocked network), start the next one too.
+    // The first real answer wins and the others are cancelled.
+    return new Promise(resolve => {
+      const ctls = []; let pending = 0, done = false, last = { unreachable: true }, i = 0;
+      const finish = j => { if (done) return; done = true; ctls.forEach(c => c.abort()); resolve(j); };
+      const start = () => {
+        if (done || i >= list.length) return;
+        const url = list[i++]; const c = new AbortController(); ctls.push(c); pending++;
+        const nextTimer = setTimeout(start, 2500);
+        callOne(url, q, c.signal).then(j => {
+          pending--;
+          if (j.reply) { clearTimeout(nextTimer); rememberEp(url); return finish(j); }
+          if (j.busy) { clearTimeout(nextTimer); return finish(j); }
+          last = j; clearTimeout(nextTimer); start();            // failed fast: go to the next one right away
+          if (!pending && i >= list.length) finish(last.unreachable ? last : null);
+        });
+      };
+      start();
+    });
   }
   async function askAI(q, typing) {
     if (!aiEndpoint()) return null;

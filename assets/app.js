@@ -261,12 +261,113 @@
   const msgs = $('[data-ai-msgs]'), chipsBox = $('[data-ai-chips]'), aiForm = $('[data-ai-form]'), aiInput = $('#ai-input'), ava = $('[data-ai-ava]');
   const settings = () => store.get('ai', { greeting: tt('Ассалому алайкум! Я Ёрдамчи, AI-помощник Olim Polvon. Подскажу по меню, подберу блюда, расскажу про доставку и помогу забронировать стол.'), tone: 'warm' });
   let busy = false, greeted = false, lastFocus = null;
-  const CHIPS = [tt('Что попробовать впервые?'), tt('Доставка'), tt('Поострее'), tt('На компанию'), tt('Забронировать стол'), tt('Часы работы')];
+  const CHIPS = [tt('Что попробовать впервые?'), tt('Стол на 4 человека'), tt('Удиви меня'), tt('Недорого и сытно'), tt('Мой заказ'), tt('Доставка'), tt('Поострее'), tt('Забронировать стол')];
+
+  /* ---- order basket (kept on this device) ---- */
+  const cart = {
+    get: () => store.get('cart', {}),
+    set(c) { store.set('cart', c); renderCartBar(); },
+    add(id, n = 1) { const c = cart.get(); c[id] = Math.max(0, (c[id] || 0) + n); if (!c[id]) delete c[id]; cart.set(c); },
+    clear() { cart.set({}); },
+    lines() { const m = getMenu(), c = cart.get(); return Object.entries(c).map(([id, q]) => ({ d: m.find(x => x.id === id), q })).filter(l => l.d); },
+    total() { return cart.lines().reduce((s, l) => s + (l.d.price || 0) * l.q, 0); },
+    count() { return cart.lines().reduce((s, l) => s + l.q, 0); },
+  };
+  const cartBar = $('[data-ai-cart]');
+  function renderCartBar() {
+    if (!cartBar) return;
+    const n = cart.count();
+    cartBar.hidden = !n;
+    if (n) { $('[data-ai-cart-sum]', cartBar).textContent = `${n} ${tt('шт.')} · ${fmt(cart.total())}`; cartBar.classList.remove('bump'); void cartBar.offsetWidth; cartBar.classList.add('bump'); }
+  }
+  cartBar?.addEventListener('click', () => ask(tt('Мой заказ')));
+  const orderText = () => cart.lines().map(l => l.q > 1 ? `${l.d.name} × ${l.q}` : l.d.name).join(', ');
+
+  /* ---- free text helpers ---- */
+  const norm = s => s.toLowerCase().replace(/[ʻʼ‘’`']/g, "'").replace(/ё/g, 'е').replace(/қ/g, 'к').replace(/ғ/g, 'г').replace(/ў/g, 'у').replace(/ҳ/g, 'х');
+  function findDishes(t) {
+    const words = norm(t).split(/[^a-zа-я0-9']+/i).filter(w => w.length > 3);
+    if (!words.length) return [];
+    const scored = getMenu().filter(d => !d.stop).map(d => {
+      const hay = norm(d.name + ' ' + d.key + ' ' + (d.alt || ''));
+      const sc = words.reduce((s, w) => s + (hay.includes(w) ? 2 : hay.includes(w.slice(0, -1)) ? 1 : 0), 0);
+      return { d, sc };
+    }).filter(x => x.sc > 0).sort((a, b) => b.sc - a.sc || (a.d.price || 0) - (b.d.price || 0));
+    if (!scored.length) return [];
+    const best = scored[0].sc;
+    return scored.filter(x => x.sc === best).slice(0, 4).map(x => x.d);
+  }
+  function parsePeople(t) {
+    const m = t.match(/(?:на|для|for)\s*(\d{1,2})\b/) || t.match(/(\d{1,2})\s*(?:чел|персон|гост|кишил|kishi|people|person|guest|pax)/);
+    return m ? Math.min(30, +m[1]) : 0;
+  }
+  function parseBudget(t) {
+    const m = t.replace(/[\s\u202f\u00a0]/g, '').match(/(?:до|за|budget|бюджет|gacha|max)?(\d{2,7})(к|k|тыс|ming|000)?(?=сум|so'm|som|uzs|$|[^\d])/);
+    if (!m) return 0;
+    let n = +m[1]; if (m[2]) n *= (m[2] === '000' ? 1000 : 1000);
+    return n >= 20000 ? n : 0;
+  }
+  // a balanced table: mains for everyone, something to share, bread and tea
+  function planTable(people, budget) {
+    const m = getMenu().filter(d => !d.stop && d.price);
+    const by = k => m.find(d => d.key === k);
+    const mains = ['Ковурма лагман', 'Норин, 250 г', 'Уйгурский лагман', 'Тахта кабоб', 'Казан-кабоб из баранины', 'Гушт сай', 'Сокоро', 'Манпар'].map(by).filter(Boolean);
+    const grill = ['Наполеон', 'Джаз из баранины', 'Шашлык из фарша', 'Шашлык из курицы'].map(by).filter(Boolean);
+    const sides = ['Аччик-чучук', 'Фирменный салат «Олим Полвон»', 'Чобан'].map(by).filter(Boolean);
+    const bread = by('Лепёшка');
+    const plan = [];
+    const add = (d, q) => { if (!d || q < 1) return; const l = plan.find(p => p.d === d); l ? l.q += q : plan.push({ d, q }); };
+    for (let i = 0; i < people; i++) add(mains[i % mains.length], 1);
+    add(grill[0], people); if (people >= 3) add(grill[1], Math.ceil(people / 2));
+    add(sides[0], Math.ceil(people / 3)); if (people >= 4) add(sides[1], 1);
+    add(bread, Math.ceil(people / 2));
+    const sum = () => plan.reduce((s, l) => s + l.d.price * l.q, 0);
+    if (budget) {
+      // trim the extras first, then swap mains for cheaper ones
+      const trims = [() => { const l = plan.find(p => p.d === sides[1]); if (l) plan.splice(plan.indexOf(l), 1); },
+                     () => { const l = plan.find(p => p.d === grill[1]); if (l) plan.splice(plan.indexOf(l), 1); },
+                     () => { const l = plan.find(p => p.d === grill[0]); if (l && l.q > Math.ceil(people / 2)) l.q = Math.ceil(people / 2); }];
+      for (const f of trims) { if (sum() <= budget) break; f(); }
+      const cheap = [...mains].sort((a, b) => a.price - b.price);
+      while (sum() > budget) {
+        const l = plan.filter(p => mains.includes(p.d)).sort((a, b) => b.d.price - a.d.price)[0];
+        if (!l || l.d === cheap[0]) break;
+        l.q--; if (!l.q) plan.splice(plan.indexOf(l), 1); add(cheap[0], 1);
+      }
+    }
+    return { plan, total: sum() };
+  }
 
   const pick = (ids) => { const m = getMenu(); return ids.map(n => m.find(d => d.key === n)).filter(d => d && !d.stop); };
   function intent(text) {
-    const t = text.toLowerCase();
+    const t = norm(text);
     const has = (...w) => w.some(x => t.includes(x));
+    // basket
+    if (has('мой заказ', 'корзин', 'что в заказе', 'buyurtmam', 'savat', 'my order', 'basket', 'cart')) {
+      if (!cart.count()) return { text: tt('Заказ пока пуст. Нажмите «+» у любого блюда в моих ответах — соберу заказ и посчитаю сумму.'), cards: pick(['Ковурма лагман', 'Норин, 250 г', 'Наполеон']) };
+      return { text: tt('Ваш заказ:') + ' ' + orderText() + '. ' + tt('Итого') + ': ' + fmt(cart.total()) + '.', cart: true };
+    }
+    // table planner: "стол на 4", "на 6 человек до 500к"
+    const people = parsePeople(t), budget = parseBudget(t);
+    if (people || (budget && has('до', 'бюджет', 'за ', 'gacha', 'budget', 'under'))) {
+      const n = people || Math.max(2, Math.round(budget / 90000));
+      const { plan, total } = planTable(n, budget);
+      const over = budget && total > budget;
+      return { text: (over ? tt('Уложиться сложно, но вот самый экономный вариант') : tt('Собрал стол')) + ` — ${n} ${tt('чел.')}: ` + plan.map(l => `${l.d.name}${l.q > 1 ? ' × ' + l.q : ''}`).join(', ') + '. ' + tt('Итого') + ' ' + fmt(total) + (n > 1 ? ` (~${fmt(Math.round(total / n / 1000) * 1000)} ${tt('на человека')})` : '') + '.', cards: plan.map(l => l.d).slice(0, 4), planAll: plan };
+    }
+    if (has('удиви', 'сюрприз', 'случайн', 'любое', 'surprise', 'random', 'hayron', 'tasodif')) {
+      const m = getMenu().filter(d => !d.stop && d.price && d.img && !['ichimlik'].includes(d.cat));
+      const one = m[Math.floor(Math.random() * m.length)];
+      return { text: tt('Сегодня советую попробовать') + ' ' + one.name + (one.desc ? ' — ' + one.desc.toLowerCase() : '') + '.', cards: [one] };
+    }
+    if (has('недорог', 'дешев', 'эконом', 'бюджетн', 'сытно', 'arzon', 'cheap', 'budget')) {
+      const m = getMenu().filter(d => !d.stop && d.price && ['milliy', 'uygur'].includes(d.cat)).sort((a, b) => a.price - b.price).slice(0, 3);
+      return { text: tt('Сытно и недорого:') + ' ' + m.map(d => `${d.name} — ${fmt(d.price)}`).join(', ') + '.', cards: m };
+    }
+    if (has('сколько стоит', 'цена', 'стоимост', 'qancha', 'narx', 'price', 'how much', 'cost')) {
+      const f = findDishes(t);
+      if (f.length) return { text: f.map(d => `${d.name}: ${d.price ? fmt(d.price) : tt('цена уточняется')}`).join('; ') + '.', cards: f };
+    }
     if (has('брон', 'стол', 'зарезерв', 'место', 'band', 'stol', 'book', 'reserv', 'table')) return { text: tt('Конечно! Откройте форму брони: дата, время и число гостей — займёт минуту. Администратор перезвонит и подтвердит.'), link: [tt('Перейти к брони'), 'contact.html#booking'] };
     if (has('достав', 'привез', 'на дом', 'yetkaz', 'с собой', 'навынос', 'deliver', 'takeaway', 'olib ket')) return { text: tt('Доставка есть: звоните +998 90 916 77 74 или +998 97 766 99 88, либо закажите в Telegram-боте @Olimpolvon_bot. Можно и забрать с собой.'), link: [tt('Открыть Telegram-бот'), 'https://t.me/Olimpolvon_bot'] };
     if (has('остр', 'перц', 'пикант', 'spic', 'hot', 'achchiq')) return { text: tt('Если любите поострее — ковурма лагман, гушт сай и острые колбаски.'), cards: pick(['Ковурма лагман', 'Гушт сай', 'Колбаски острые']) };
@@ -282,7 +383,9 @@
     if (has('плов', 'osh', 'plov', 'palov')) return { text: tt('Свадебный плов — с казы, изюмом и нутом. Чайханский плов готовим под заказ.'), cards: pick(['Свадебный плов', 'Чайханский плов']) };
     if (has('впервые', 'попробовать', 'посовет', 'что взять', 'вкусн', 'рекоменд', 'хит', 'first', 'recommend', 'try', 'birinchi', 'tavsiya', 'maslahat', 'nima olsak')) return { text: tt('Если вы у нас впервые: ковурма лагман, норин и шашлык Наполеон. Это то, за чем к нам возвращаются.'), cards: pick(['Ковурма лагман', 'Норин, 250 г', 'Наполеон']) };
     if (has('привет', 'салам', 'здравств', 'ассалом', 'assalom', 'salom', 'hello', 'hi ')) return { text: tt('Ваалейкум ассалом! Чем помочь: подобрать блюда, оформить доставку или забронировать стол?') };
-    return { text: tt('Пока я отвечаю на вопросы о меню, доставке, часах работы и брони — это демо-версия. Попробуйте подсказку ниже.') };
+    const f = findDishes(t);
+    if (f.length) return { text: f.length === 1 ? `${f[0].name}${f[0].desc ? ' — ' + f[0].desc.toLowerCase() : ''}. ${f[0].price ? fmt(f[0].price) : ''}` : tt('Вот что нашёл в меню:'), cards: f };
+    return { text: tt('Не совсем понял. Могу собрать стол на компанию («стол на 4 до 400 000»), найти блюдо по названию, посчитать заказ или рассказать про доставку и бронь.') };
   }
 
   const scrollDown = () => { msgs.scrollTop = msgs.scrollHeight; };
@@ -302,8 +405,14 @@
     if (!list?.length) return;
     const box = document.createElement('div'); box.className = 'ai-cards';
     list.forEach((d, i) => {
-      const a = document.createElement('a'); a.className = 'ai-card'; a.href = 'menu.html#' + d.id; a.style.animationDelay = [0, 60, 110, 150][i] + 'ms';
-      a.innerHTML = `${d.img ? `<img src="${d.img}" alt="">` : '<span class="ai-card-ph"><svg aria-hidden="true"><use href="#mark"/></svg></span>'}<span><b>${esc(d.name)}</b><small>${esc(d.weight)}</small></span><span class="price">${d.price ? fmt(d.price) : ''}</span>`;
+      const a = document.createElement('div'); a.className = 'ai-card'; a.style.animationDelay = [0, 60, 110, 150][i] + 'ms';
+      a.innerHTML = `${d.img ? `<img src="${d.img}" alt="">` : '<span class="ai-card-ph"><svg aria-hidden="true"><use href="#mark"/></svg></span>'}<a href="menu.html#${d.id}"><b>${esc(d.name)}</b><small>${esc(d.weight)}</small></a><span class="price">${d.price ? fmt(d.price) : ''}</span>`;
+      if (d.price) {
+        const add = document.createElement('button'); add.type = 'button'; add.className = 'ai-add'; add.setAttribute('aria-label', tt('Добавить в заказ') + ': ' + d.name);
+        add.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>';
+        add.addEventListener('click', () => { cart.add(d.id); add.classList.add('is-added'); setTimeout(() => add.classList.remove('is-added'), 700); });
+        a.append(add);
+      }
       box.append(a);
     });
     host.append(box); scrollDown();
@@ -318,9 +427,37 @@
     const m = addMsg('bot', ''); await stream(m, text);
     ava?.classList.remove('is-talking');
     renderCards(extra.cards, msgs);
+    if (extra.planAll) {
+      const b = document.createElement('button'); b.type = 'button'; b.className = 'btn msg pop'; b.style.cssText = 'align-self:flex-start;min-height:44px;font-size:15px';
+      b.textContent = tt('Добавить всё в заказ');
+      b.addEventListener('click', () => { extra.planAll.forEach(l => cart.add(l.d.id, l.q)); b.disabled = true; b.textContent = tt('Добавлено ✓'); });
+      msgs.append(b); scrollDown();
+    }
+    if (extra.cart) renderOrder();
     if (extra.link) { const a = document.createElement('a'); a.className = 'btn btn--cobalt msg pop'; a.style.cssText = 'align-self:flex-start;min-height:44px;font-size:15px'; a.href = extra.link[1]; a.textContent = extra.link[0]; msgs.append(a); scrollDown(); }
     ava?.classList.remove('is-thinking', 'is-talking'); busy = false;
   }
+  function renderOrder() {
+    const box = document.createElement('div'); box.className = 'ai-order pop';
+    const draw = () => {
+      const lines = cart.lines();
+      if (!lines.length) { box.innerHTML = `<p>${esc(tt('Заказ пуст.'))}</p>`; return; }
+      box.innerHTML = lines.map(l => `<div class="ai-order-row" data-id="${l.d.id}"><span>${esc(l.d.name)}</span><span class="qty"><button type="button" data-q="-1" aria-label="−">−</button><b>${l.q}</b><button type="button" data-q="1" aria-label="+">+</button></span><span class="price">${fmt(l.d.price * l.q)}</span></div>`).join('')
+        + `<div class="ai-order-total"><span>${esc(tt('Итого'))}</span><b>${fmt(cart.total())}</b></div>`
+        + `<div class="ai-order-actions"><a class="btn" href="contact.html#booking" data-order-book>${esc(tt('Забронировать с этим заказом'))}</a><a class="btn btn--ghost" href="tel:+998909167774">${esc(tt('Заказать доставку'))}</a><button type="button" class="ai-order-copy" data-order-copy>${esc(tt('Скопировать заказ'))}</button><button type="button" class="ai-order-copy" data-order-clear>${esc(tt('Очистить'))}</button></div>`;
+    };
+    box.addEventListener('click', e => {
+      const q = e.target.closest('[data-q]'); if (q) { cart.add(q.closest('[data-id]').dataset.id, +q.dataset.q); draw(); return; }
+      if (e.target.closest('[data-order-clear]')) { cart.clear(); draw(); return; }
+      if (e.target.closest('[data-order-copy]')) { navigator.clipboard?.writeText(tt('Заказ') + ': ' + orderText() + '. ' + tt('Итого') + ': ' + fmt(cart.total())).then(() => toast(tt('Заказ скопирован — вставьте его в Telegram-бот'))).catch(() => {}); return; }
+      if (e.target.closest('[data-order-book]')) store.set('booking_note', tt('Заказ к приходу') + ': ' + orderText());
+    });
+    draw(); msgs.append(box); scrollDown();
+  }
+  renderCartBar();
+  // booking form picks up the order chosen in the assistant
+  const note = $('#b-note'); const pre = store.get('booking_note', '');
+  if (note && pre && !note.value) { note.value = pre; store.set('booking_note', ''); }
   function renderChips() {
     chipsBox.innerHTML = '';
     CHIPS.forEach((c, i) => { const b = document.createElement('button'); b.type = 'button'; b.textContent = c; b.style.animationDelay = i * 40 + 'ms'; b.addEventListener('click', () => ask(c)); chipsBox.append(b); });

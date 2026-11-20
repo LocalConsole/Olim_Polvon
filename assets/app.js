@@ -256,7 +256,8 @@
   /* ---------------- AI assistant (demo, scripted) ---------------- */
   const panel = $('#ai-panel');
   const msgs = $('[data-ai-msgs]'), chipsBox = $('[data-ai-chips]'), aiForm = $('[data-ai-form]'), aiInput = $('#ai-input'), ava = $('[data-ai-ava]');
-  const settings = () => store.get('ai', { greeting: tt('Ассалому алайкум! Я Ёрдамчи, AI-помощник Olim Polvon. Подскажу по меню, подберу блюда, расскажу про доставку и помогу забронировать стол.'), tone: 'warm' });
+  const AI_DEFAULTS = { greeting: tt('Ассалому алайкум! Я Ёрдамчи, AI-помощник Olim Polvon. Подскажу по меню, подберу блюда, расскажу про доставку и помогу забронировать стол.'), tone: 'warm' };
+  const settings = () => { const s = { ...AI_DEFAULTS, ...store.get('ai', {}) }; if (!s.greeting) s.greeting = AI_DEFAULTS.greeting; return s; };
   let busy = false, greeted = false, lastFocus = null;
   const CHIPS = [tt('Что попробовать впервые?'), tt('Стол на 4 человека'), tt('Удиви меня'), tt('Недорого и сытно'), tt('Мой заказ'), tt('Доставка'), tt('Поострее'), tt('Забронировать стол')];
 
@@ -461,22 +462,47 @@
   }
   /* ---- live AI through the Cloudflare Worker (key never reaches the browser) ---- */
   const aiEndpoint = () => (store.get('ai', {}).endpoint || panel?.dataset.aiEndpoint || '').trim();
-  const history = [];
-  if (aiEndpoint()) { const f = $('.ai-foot'); if (f) f.textContent = tt('Отвечает ИИ Gemini. Может ошибаться — уточняйте у администратора.'); }
+  // conversation survives page changes within the visit
+  const history = (() => { try { return JSON.parse(sessionStorage.getItem('polvon_chat') || '[]'); } catch { return []; } })();
+  if (aiEndpoint()) { const f = $('.ai-foot'); if (f) f.textContent = tt('Отвечает ИИ. Может ошибаться — уточняйте у администратора.'); }
   function matchDishes(names) {
     const m = getMenu().filter(d => !d.stop); const n = s => norm(s).replace(/[«»"]/g, '');
     return (names || []).map(x => m.find(d => n(d.key) === n(x)) || m.find(d => n(d.key + ' ' + (d.alt || '')).includes(n(x)))).filter((d, i, a) => d && a.indexOf(d) === i);
   }
-  async function askAI(q) {
-    const url = aiEndpoint(); if (!url) return null;
-    const ctl = new AbortController(); const to = setTimeout(() => ctl.abort(), 15000);
+  function sysNote(text) {
+    const n = document.createElement('div'); n.className = 'msg msg--sys pop'; n.textContent = text; msgs.append(n); scrollDown(); return n;
+  }
+  let switchedShown = false;
+  async function callAI(q) {
+    const ctl = new AbortController(); const to = setTimeout(() => ctl.abort(), 20000);
     try {
-      const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: ctl.signal,
-        body: JSON.stringify({ messages: [...history, { role: 'me', text: q }].slice(-10), tone: settings().tone, lang: LANG }) });
-      if (!r.ok) return null;
-      const j = await r.json(); if (!j.reply) return null;
-      return { text: j.reply, cards: matchDishes(j.dishes) };
+      // the whole recent conversation goes along, so a switch to the backup AI forgets nothing
+      const r = await fetch(aiEndpoint(), { method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: ctl.signal,
+        body: JSON.stringify({ messages: [...history, { role: 'me', text: q }].slice(-12), tone: settings().tone, lang: LANG }) });
+      const j = await r.json().catch(() => ({}));
+      if (r.status === 429) return { busy: Math.min(60, Math.max(5, +j.retryAfter || 20)) };
+      if (!r.ok || !j.reply) return null;
+      return j;
     } catch { return null; } finally { clearTimeout(to); }
+  }
+  async function askAI(q, typing) {
+    if (!aiEndpoint()) return null;
+    let j = await callAI(q);
+    if (j?.busy) {
+      // every AI is at its limit right now: tell the guest, wait, try once more (conversation is kept)
+      typing.remove();
+      const note = sysNote(''); let left = j.busy;
+      const tick = () => { note.textContent = tt('Сейчас много вопросов — ИИ переключается. Подождите {n} сек, я отвечу сам.').replace('{n}', left); };
+      tick(); ava?.classList.add('is-thinking');
+      await new Promise(res => { const t = setInterval(() => { left--; if (left <= 0) { clearInterval(t); res(); } else tick(); }, 1000); });
+      note.textContent = tt('Продолжаем разговор…'); msgs.append(typing); scrollDown();
+      j = await callAI(q);
+      if (!j || j.busy) { note.textContent = tt('ИИ всё ещё занят — пока отвечу в простом режиме.'); return null; }
+      note.remove();
+    }
+    if (!j) return null;
+    if (j.switched && !switchedShown) { switchedShown = true; sysNote(tt('Основной ИИ на лимите — ответил запасной. Разговор сохранён.')); }
+    return { text: j.reply, cards: matchDishes(j.dishes) };
   }
   async function ask(q) {
     if (busy || !q.trim()) return;
@@ -486,11 +512,12 @@
     if (!r.cart && !r.planAll && aiEndpoint()) {
       busy = true; ava?.classList.add('is-thinking');
       const typing = document.createElement('div'); typing.className = 'msg msg--bot typing pop'; typing.innerHTML = '<i></i><i></i><i></i>'; msgs.append(typing); scrollDown();
-      const ai = await askAI(q);
+      const ai = await askAI(q, typing);
       typing.remove(); busy = false;
       if (ai) { r = ai; r.fast = true; }
     }
     history.push({ role: 'me', text: q }, { role: 'bot', text: r.text }); if (history.length > 20) history.splice(0, history.length - 20);
+    try { sessionStorage.setItem('polvon_chat', JSON.stringify(history)); } catch {}
     await botReply(r.text, r);
   }
   function openAI() {
@@ -499,7 +526,11 @@
     hideHello?.(); document.body.classList.add('ai-open'); root.classList.add('ai-open');
     $$('[data-ai-open]').forEach(b => b.setAttribute('aria-expanded', 'true'));
     setTimeout(() => aiInput?.focus({ preventScroll: true }), 120);
-    if (!greeted) { greeted = true; renderChips(); botReply(settings().greeting); }
+    if (!greeted) {
+      greeted = true; renderChips();
+      if (history.length) { history.forEach(m => addMsg(m.role === 'me' ? 'me' : 'bot', m.text)); sysNote(tt('Продолжаем с того места, где остановились.')); }
+      else botReply(settings().greeting);
+    }
   }
   function closeAI() {
     root.classList.remove('ai-open'); document.body.classList.remove('ai-open');

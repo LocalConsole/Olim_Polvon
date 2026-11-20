@@ -1093,3 +1093,4 @@ body::before {
 .ai-msgs .msg { overflow-wrap: anywhere; }
 .ai-close { border: 1px solid var(--line-strong) !important; flex: none; }
 @media (hover: hover) and (pointer: fine) { .ai-close:hover { background: var(--bg-3) !important; } }
+.msg--sys { align-self: center; max-width: 92%; background: transparent; border: 1px dashed var(--line-strong); color: var(--muted); font-size: 13px; text-align: center; padding: 8px 14px; border-radius: 12px; }

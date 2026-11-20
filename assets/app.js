@@ -566,3 +566,30 @@
     show();
   }
 })();
+
+/* ---------------- theme (light / dark) + ornament in-view ---------------- */
+(() => {
+  const d = document.documentElement;
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const meta = document.querySelector('meta[name="theme-color"]');
+  const sync = () => { if (meta) meta.content = d.dataset.theme === 'light' ? '#f6efe2' : '#12100e'; };
+  sync();
+  const btn = document.querySelector('[data-theme-toggle]');
+  btn?.addEventListener('click', e => {
+    const next = d.dataset.theme === 'light' ? 'dark' : 'light';
+    const apply = () => { d.dataset.theme = next; sync(); try { localStorage.setItem('polvon_theme', next); } catch {} };
+    if (!document.startViewTransition || reduce) { apply(); return; }
+    // the new theme grows as a circle out of the button
+    const r = btn.getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + r.height / 2;
+    const end = Math.hypot(Math.max(x, innerWidth - x), Math.max(y, innerHeight - y));
+    d.classList.add('theme-switching');
+    const vt = document.startViewTransition(apply);
+    vt.ready.then(() => d.animate({ clipPath: [`circle(0px at ${x}px ${y}px)`, `circle(${end}px at ${x}px ${y}px)`] },
+      { duration: 620, easing: 'cubic-bezier(0.77, 0, 0.175, 1)', pseudoElement: '::view-transition-new(root)' }));
+    vt.finished.finally(() => d.classList.remove('theme-switching'));
+  });
+  const els = document.querySelectorAll('.medallion, .orn-rule, .table-orn');
+  if (!('IntersectionObserver' in window) || reduce) { els.forEach(el => el.classList.add('in')); return; }
+  const io = new IntersectionObserver(es => es.forEach(en => { if (en.isIntersecting) { en.target.classList.add('in'); io.unobserve(en.target); } }), { threshold: 0.25 });
+  els.forEach(el => io.observe(el));
+})();

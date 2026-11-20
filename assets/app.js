@@ -32,13 +32,16 @@
 
   /* ---------------- menu data (+ admin overrides) ---------------- */
   const BASE_MENU = (() => { try { return JSON.parse($('#menu-data').textContent); } catch { return []; } })();
+  const CAT_TITLES = Object.fromEntries(BASE_MENU.map(d => [d.cat, d.catTitle]));
   function getMenu() {
     const ov = store.get('menu', {});
-    return BASE_MENU.map(d => {
+    const custom = store.get('custom', []).map(d => ({ ...d, tags: d.tags || [], catTitle: CAT_TITLES[d.cat] || d.cat, custom: true }));
+    return [...BASE_MENU, ...custom].filter(d => !(ov[d.id] || {}).deleted).map(d => {
       const o = ov[d.id] || {};
       const tags = d.tags.filter(t => t !== 'hit');
       const hit = o.hit !== undefined ? o.hit : d.tags.includes('hit');
-      return { ...d, price: o.price ?? d.price, stop: !!o.stop, tags: hit ? ['hit', ...tags] : tags };
+      const cat = o.cat || d.cat;
+      return { ...d, cat, catTitle: CAT_TITLES[cat] || d.catTitle, price: o.price ?? d.price, stop: !!o.stop, tags: hit ? ['hit', ...tags] : tags };
     });
   }
   function setOverride(id, patch) {
@@ -214,27 +217,21 @@
     }
   }
 
-  /* ---------------- category list: a photo follows the cursor ---------------- */
-  const cats = $('[data-cats]'), prev = $('[data-cat-preview]');
-  if (cats && prev && finePointer && !reduce) {
-    const imgs = {};
-    let tx = 0, ty = 0, x = 0, y = 0, raf = 0, on = false;
-    const loop = () => {
-      x += (tx - x) * 0.16; y += (ty - y) * 0.16;
-      prev.style.left = x + 'px'; prev.style.top = y + 'px';
-      raf = (Math.abs(tx - x) > .3 || Math.abs(ty - y) > .3) ? requestAnimationFrame(loop) : 0;
+  /* ---------------- category list: a fixed card beside the list shows the hovered section ---------------- */
+  const cats = $('[data-cats]'), card = $('[data-cat-card]');
+  if (cats && card) {
+    const imgs = $$('img[data-for]', card), title = $('[data-cat-card-title]', card), count = $('[data-cat-card-count]', card);
+    const rows = $$('a[data-cat]', cats);
+    const show = a => {
+      rows.forEach(r => r.parentElement.classList.toggle('is-current', r === a));
+      imgs.forEach(im => im.classList.toggle('is-on', im.dataset.for === a.dataset.cat));
+      if (title.textContent !== a.dataset.title) {
+        title.textContent = a.dataset.title; count.textContent = a.dataset.count;
+        if (!reduce) title.animate([{ opacity: 0, transform: 'translateY(6px)' }, { opacity: 1, transform: 'none' }], { duration: 260, easing: EASE });
+      }
     };
-    $$('a[data-preview]', cats).forEach(a => {
-      a.addEventListener('pointerenter', e => {
-        const src = a.dataset.preview;
-        if (!imgs[src]) { const im = new Image(); im.src = src; im.alt = ''; prev.append(im); imgs[src] = im; }
-        Object.values(imgs).forEach(im => im.classList.toggle('is-on', im === imgs[src]));
-        if (!on) { x = tx = e.clientX + 170; y = ty = e.clientY; prev.style.left = x + 'px'; prev.style.top = y + 'px'; }
-        on = true; prev.classList.add('is-on');
-      });
-    });
-    cats.addEventListener('pointermove', e => { tx = e.clientX + 170; ty = e.clientY; if (!raf) raf = requestAnimationFrame(loop); });
-    cats.addEventListener('pointerleave', () => { on = false; prev.classList.remove('is-on'); });
+    rows.forEach(a => { a.addEventListener('pointerenter', () => show(a)); a.addEventListener('focus', () => show(a)); });
+    show(rows[0]);
   }
 
   /* ---------------- word highlight moment ---------------- */
@@ -380,7 +377,7 @@
     if (has('норин', 'нарын', 'norin', 'бешбармак', 'beshbarm')) return { text: tt('Норин режем тонко, по-ташкентски: есть порция 250 г с казы и килограмм на компанию. Бешбармак — от одной порции до большого блюда.'), cards: pick(['Норин, 250 г', 'Норин', 'Бешбармак']) };
     if (has('суп', 'шурп', 'шорва', 'утр', 'завтрак', 'soup', "sho'rva", 'breakfast', 'nonushta', 'ertalab')) return { text: tt('С утра советую илик шурпу или нохат шурак, а если хочется сытнее — халим.'), cards: pick(['Илик шурпа', 'Нохат шурак', 'Халим']) };
     if (has('салат', 'salat', 'salad', 'овощ')) return { text: tt('К мясу берут аччик-чучук, а фирменный салат «Олим Полвон» — с говядиной и моцареллой.'), cards: pick(['Аччик-чучук', 'Фирменный салат «Олим Полвон»', 'Чобан']) };
-    if (has('плов', 'osh', 'plov', 'palov')) return { text: tt('Свадебный плов — с казы, изюмом и нутом. Чайханский плов готовим под заказ.'), cards: pick(['Свадебный плов', 'Чайханский плов']) };
+    if (has('плов', 'osh', 'plov', 'palov')) return { text: tt('Свадебный плов — с казы, изюмом и нутом.'), cards: pick(['Свадебный плов']) };
     if (has('впервые', 'попробовать', 'посовет', 'что взять', 'вкусн', 'рекоменд', 'хит', 'first', 'recommend', 'try', 'birinchi', 'tavsiya', 'maslahat', 'nima olsak')) return { text: tt('Если вы у нас впервые: ковурма лагман, норин и шашлык Наполеон. Это то, за чем к нам возвращаются.'), cards: pick(['Ковурма лагман', 'Норин, 250 г', 'Наполеон']) };
     if (has('привет', 'салам', 'здравств', 'ассалом', 'assalom', 'salom', 'hello', 'hi ')) return { text: tt('Ваалейкум ассалом! Чем помочь: подобрать блюда, оформить доставку или забронировать стол?') };
     const f = findDishes(t);
@@ -502,6 +499,23 @@
   }
   $('[data-hello-close]')?.addEventListener('click', hideHello);
   $('[data-ai-close]')?.addEventListener('click', closeAI);
+  const teaser = $('.ai-teaser');
+  if (teaser && 'IntersectionObserver' in window) new IntersectionObserver(([e]) => root.classList.toggle('teaser-in', e.isIntersecting), { threshold: 0.35 }).observe(teaser);
+  // hints scroll: wheel, drag and arrows
+  const chipWrap = $('.ai-chips-wrap');
+  if (chipWrap && chipsBox) {
+    const upd = () => { chipWrap.classList.toggle('can-l', chipsBox.scrollLeft > 4); chipWrap.classList.toggle('can-r', chipsBox.scrollLeft + chipsBox.clientWidth < chipsBox.scrollWidth - 4); };
+    chipsBox.addEventListener('scroll', upd, { passive: true }); addEventListener('resize', upd);
+    new MutationObserver(upd).observe(chipsBox, { childList: true });
+    chipsBox.addEventListener('wheel', e => { if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) { chipsBox.scrollLeft += e.deltaY; e.preventDefault(); } }, { passive: false });
+    let sx = 0, sl = 0, moved = false, down = false;
+    chipsBox.addEventListener('pointerdown', e => { if (e.pointerType !== 'mouse') return; down = true; moved = false; sx = e.clientX; sl = chipsBox.scrollLeft; });
+    addEventListener('pointermove', e => { if (!down) return; const dx = e.clientX - sx; if (Math.abs(dx) > 5) { moved = true; chipsBox.classList.add('is-dragging'); } chipsBox.scrollLeft = sl - dx; });
+    addEventListener('pointerup', () => { if (!down) return; down = false; setTimeout(() => chipsBox.classList.remove('is-dragging'), 0); });
+    chipsBox.addEventListener('click', e => { if (moved) { e.stopPropagation(); e.preventDefault(); moved = false; } }, true);
+    $$('[data-chip-dir]', chipWrap).forEach(b => b.addEventListener('click', () => chipsBox.scrollBy({ left: +b.dataset.chipDir * chipsBox.clientWidth * 0.7, behavior: reduce ? 'auto' : 'smooth' })));
+    upd();
+  }
   addEventListener('keydown', e => { if (e.key === 'Escape' && root.classList.contains('ai-open')) closeAI(); });
   aiForm?.addEventListener('submit', e => { e.preventDefault(); ask(aiInput.value); });
 
@@ -571,10 +585,26 @@
     }
 
     // overrides from the admin panel: price, stop-list, hit
+    const listOf = cat => $(`#${cat} .menu-list`);
+    function buildLi(d) {
+      const li = document.createElement('li'); li.className = 'menu-item'; li.id = d.id; li.dataset.id = d.id;
+      li.dataset.search = (d.name + ' ' + (d.desc || '')).toLowerCase();
+      li.innerHTML = (d.img ? `<div class="dish-ph"><img src="${esc(d.img)}" alt="${esc(d.name)}" width="600" height="450" loading="lazy"></div>`
+        : `<div class="dish-ph dish-ph--empty"><span class="ph-name">${esc(d.name)}</span><small>${esc(tt('Фото скоро'))}</small></div>`)
+        + `<div class="menu-item-top"><h3>${esc(d.name)}</h3><span class="price" data-price></span></div>`
+        + (d.desc ? `<p>${esc(d.desc)}</p>` : '')
+        + `<div class="meta"><span class="unit">${esc(d.weight || tt('1 порция'))}</span><button class="edit-btn" type="button" data-edit><svg class="icon" aria-hidden="true"><use href="#i-edit"/></svg>${esc(tt('Изменить'))}</button></div>`;
+      return li;
+    }
     function applyOverrides() {
-      const m = getMenu();
+      const m = getMenu(); const live = new Set(m.map(d => d.id));
+      $$('.menu-item').forEach(li => li.classList.toggle('is-deleted', !live.has(li.dataset.id)));
       m.forEach(d => {
-        const li = document.getElementById(d.id); if (!li) return;
+        let li = document.getElementById(d.id);
+        if (!li && d.custom) { li = buildLi(d); listOf(d.cat)?.append(li); }
+        if (!li) return;
+        if (li.closest('.menu-cat')?.id !== d.cat && listOf(d.cat)) listOf(d.cat).append(li);
+        if (d.custom && !$('.tag--new', li)) li.classList.add('is-custom');
         $('[data-price]', li).textContent = d.price ? fmt(d.price) : tt('цена уточняется');
         li.classList.toggle('is-stop', d.stop);
         li.dataset.tags = d.tags.join(' ');
@@ -585,8 +615,14 @@
         d.tags.forEach(t => { const s = document.createElement('span'); s.className = 'tag tag--' + t; s.textContent = labels[t]; meta.insertBefore(s, edit); });
         if (d.stop) { const s = document.createElement('span'); s.className = 'tag tag--stop'; s.textContent = tt('Нет в наличии'); meta.insertBefore(s, edit); }
       });
+      $$('.menu-cat').forEach(sec => {
+        const n = $$('.menu-item:not(.is-deleted)', sec).length;
+        const c = $('[data-cat-count]', sec); if (c) c.textContent = `${n} ${tt('позиций')}`;
+        const nav = $(`.cat-nav a[href="#${sec.id}"] small`); if (nav) nav.textContent = n;
+      });
     }
     applyOverrides(); applyFilter();
+    document.addEventListener('polvon:menu', () => { applyOverrides(); applyFilter(); const d = getMenu().slice(-1)[0]; document.getElementById(d.id)?.scrollIntoView({ block: 'center', behavior: reduce ? 'auto' : 'smooth' }); });
 
     // inline edit (admin)
     document.addEventListener('click', e => {
@@ -597,15 +633,54 @@
       box.style.cssText = 'grid-column:1/-1;display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:12px;background:var(--cobalt-tint);border-radius:12px;margin-top:6px';
       box.innerHTML = `<label style="display:flex;gap:8px;align-items:center;font-size:14px;font-weight:600">Цена <input type="number" step="1000" min="0" value="${d.price ?? ''}" style="height:40px;width:130px;border:1px solid var(--line-strong);border-radius:8px;padding:0 10px"></label>
         <label style="display:flex;gap:8px;align-items:center;font-size:14px;font-weight:600"><span class="switch"><input type="checkbox" ${d.stop ? 'checked' : ''}><span></span></span>Стоп-лист</label>
-        <button class="mini-btn" type="button" data-save style="margin-left:auto">Сохранить</button><button class="mini-btn" type="button" data-cancel>Отмена</button>`;
+        <label style="display:flex;gap:8px;align-items:center;font-size:14px;font-weight:600">${tt('Раздел')} <select data-cat-sel>${Object.entries(CAT_TITLES).map(([k, v]) => `<option value="${k}" ${k === d.cat ? 'selected' : ''}>${esc(v)}</option>`).join('')}</select></label>
+        <button class="mini-btn" type="button" data-save style="margin-left:auto">${tt('Сохранить')}</button><button class="mini-btn" type="button" data-cancel>${tt('Отмена')}</button><button class="mini-btn mini-btn--danger" type="button" data-remove>${tt('Удалить')}</button>`;
       li.append(box); $('input[type=number]', box).focus();
       $('[data-cancel]', box).onclick = () => box.remove();
       $('[data-save]', box).onclick = () => {
-        setOverride(d.id, { price: Math.max(0, parseInt($('input[type=number]', box).value, 10) || 0), stop: $('input[type=checkbox]', box).checked });
+        const cat = $('[data-cat-sel]', box).value;
+        setOverride(d.id, { price: Math.max(0, parseInt($('input[type=number]', box).value, 10) || 0), stop: $('input[type=checkbox]', box).checked, cat: cat !== d.cat || (store.get('menu', {})[d.id] || {}).cat ? cat : undefined });
         box.remove(); applyOverrides(); applyFilter(); toast(tt('Сохранено: ') + d.name);
+      };
+      const rm = $('[data-remove]', box);
+      rm.onclick = () => {
+        if (!rm.dataset.sure) { rm.dataset.sure = '1'; rm.textContent = tt('Точно удалить?'); return; }
+        if (d.custom) store.set('custom', store.get('custom', []).filter(x => x.id !== d.id)); else setOverride(d.id, { deleted: true });
+        box.remove(); applyOverrides(); applyFilter(); toast(tt('Удалено: ') + d.name);
       };
     });
   }
+
+  /* ---------------- admin: add a dish to a section ---------------- */
+  document.addEventListener('click', e => {
+    const b = e.target.closest('[data-add-dish]'); if (!b || !isAdmin()) return;
+    const sec = b.closest('.menu-cat'); if ($('.admin-dish-form', sec)) return;
+    const f = document.createElement('form'); f.className = 'admin-dish-form';
+    f.innerHTML = `<input name="name" required placeholder="${tt('Название блюда')}" aria-label="${tt('Название блюда')}">
+      <input name="price" type="number" min="0" step="1000" required placeholder="${tt('Цена, сум')}" aria-label="${tt('Цена, сум')}">
+      <input name="weight" placeholder="${tt('Выход, например 1 порция')}" aria-label="${tt('Выход')}">
+      <select name="cat" aria-label="${tt('Раздел')}">${Object.entries(CAT_TITLES).map(([k, v]) => `<option value="${k}" ${k === b.dataset.addDish ? 'selected' : ''}>${esc(v)}</option>`).join('')}</select>
+      <textarea name="desc" placeholder="${tt('Состав или описание')}" aria-label="${tt('Состав или описание')}"></textarea>
+      <div class="row"><label class="mini-btn" style="display:inline-flex;align-items:center;cursor:pointer">${tt('Фото')}<input name="photo" type="file" accept="image/*" hidden></label><span class="muted" data-photo-name style="font-size:13px"></span>
+      <button class="mini-btn" type="submit" style="margin-left:auto">${tt('Добавить')}</button><button class="mini-btn" type="button" data-x>${tt('Отмена')}</button></div>`;
+    $('.menu-list', sec).before(f); f.name.focus();
+    let photo = null;
+    f.photo.addEventListener('change', () => {
+      const file = f.photo.files[0]; if (!file) return;
+      const im = new Image(); im.onload = () => {   // shrink to 600px so it fits in browser storage
+        const c = document.createElement('canvas'); const k = Math.min(1, 600 / im.width); c.width = im.width * k; c.height = im.height * k;
+        c.getContext('2d').drawImage(im, 0, 0, c.width, c.height); photo = c.toDataURL('image/webp', 0.8); $('[data-photo-name]', f).textContent = file.name;
+      }; im.src = URL.createObjectURL(file);
+    });
+    $('[data-x]', f).onclick = () => f.remove();
+    f.addEventListener('submit', ev => {
+      ev.preventDefault();
+      const d = { id: 'custom-' + Date.now().toString(36), key: f.name.value.trim(), name: f.name.value.trim(), cat: f.cat.value, desc: f.desc.value.trim(),
+                  weight: f.weight.value.trim() || tt('1 порция'), price: Math.max(0, parseInt(f.price.value, 10) || 0), img: photo, tags: [] };
+      try { store.set('custom', [...store.get('custom', []), d]); } catch { toast(tt('Фото слишком большое')); return; }
+      f.remove(); document.dispatchEvent(new CustomEvent('polvon:menu')); toast(tt('Добавлено: ') + d.name);
+    });
+  });
 
   /* ---------------- booking form ---------------- */
   const booking = $('[data-booking]');
@@ -693,7 +768,7 @@
       const f = inp.dataset.f; setOverride(id, { [f]: f === 'price' ? (inp.value === '' ? null : Math.max(0, parseInt(inp.value, 10) || 0)) : inp.checked });
       renderKpis(); clearTimeout(saveT); saveT = setTimeout(() => toast(tt('Сохранено')), 150);
     });
-    $('[data-menu-reset]')?.addEventListener('click', () => { store.del('menu'); renderMenuEditor(); renderKpis(); toast(tt('Меню сброшено к исходному')); });
+    $('[data-menu-reset]')?.addEventListener('click', () => { store.del('menu'); store.del('custom'); renderMenuEditor(); renderKpis(); toast(tt('Меню сброшено к исходному')); });
     const aiSet = $('[data-ai-settings]');
     aiSet?.addEventListener('submit', e => { e.preventDefault(); store.set('ai', { greeting: aiSet.greeting.value, tone: aiSet.tone.value }); toast(tt('Настройки помощника сохранены')); });
     function renderAll() {
@@ -714,7 +789,12 @@
   const btn = document.querySelector('[data-theme-toggle]');
   btn?.addEventListener('click', e => {
     const next = d.dataset.theme === 'light' ? 'dark' : 'light';
-    const apply = () => { d.dataset.theme = next; sync(); try { localStorage.setItem('polvon_theme', next); } catch {} };
+    const apply = () => {
+      d.dataset.theme = next; sync();
+      try { localStorage.setItem('polvon_theme', next); } catch {}
+      try { sessionStorage.setItem('polvon_theme', next); } catch {}
+      try { document.cookie = `polvon_theme=${next}; path=/; max-age=31536000; SameSite=Lax`; } catch {}
+    };
     if (!document.startViewTransition || reduce) { apply(); return; }
     // the new theme grows as a circle out of the button
     const r = btn.getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + r.height / 2;

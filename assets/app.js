@@ -467,7 +467,10 @@
     CHIPS.forEach((c, i) => { const b = document.createElement('button'); b.type = 'button'; b.textContent = c; b.style.animationDelay = i * 40 + 'ms'; b.addEventListener('click', () => ask(c)); chipsBox.append(b); });
   }
   /* ---- live AI through the Cloudflare Worker (key never reaches the browser) ---- */
-  const aiEndpoint = () => (store.get('ai', {}).endpoint || panel?.dataset.aiEndpoint || '').trim();
+  // one or more addresses, comma separated: Cloudflare Worker first, Google Apps Script as a backup
+  const aiEndpoints = () => (store.get('ai', {}).endpoint || panel?.dataset.aiEndpoint || '').split(/[\s,]+/).map(x => x.trim()).filter(Boolean);
+  const aiEndpoint = () => aiEndpoints()[0] || '';
+  let goodEp = (() => { try { return sessionStorage.getItem('polvon_ai_ep') || ''; } catch { return ''; } })();
   // conversation survives page changes within the visit
   const history = (() => { try { return JSON.parse(sessionStorage.getItem('polvon_chat') || '[]'); } catch { return []; } })();
   if (aiEndpoint()) { const f = $('.ai-foot'); if (f) f.textContent = tt('Отвечает ИИ. Может ошибаться — уточняйте у администратора.'); }
@@ -482,23 +485,36 @@
   let aiWarm = false, unreachableShown = false;
   function warmAI() {   // first contact can fail on some networks (QUIC); a cheap OPTIONS ping opens the connection early
     if (aiWarm || !aiEndpoint()) return; aiWarm = true;
-    fetch(aiEndpoint(), { method: 'OPTIONS' }).catch(() => {});
+    aiEndpoints().forEach(u => { if (!/script\.google/.test(u)) fetch(u, { method: 'OPTIONS' }).catch(() => {}); });
   }
-  async function callAI(q, attempt = 0) {
-    const ctl = new AbortController(); const to = setTimeout(() => ctl.abort(), 20000);
+  async function callOne(url, q) {
+    const gas = /script\.google/.test(url);
+    const ctl = new AbortController(); const to = setTimeout(() => ctl.abort(), gas ? 30000 : 20000);
     try {
       // the whole recent conversation goes along, so a switch to the backup AI forgets nothing
-      const r = await fetch(aiEndpoint(), { method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: ctl.signal,
+      const r = await fetch(url, { method: 'POST', signal: ctl.signal, redirect: 'follow',
+        // Apps Script accepts only "simple" requests (no CORS preflight), so send JSON as plain text there
+        headers: { 'Content-Type': gas ? 'text/plain;charset=utf-8' : 'application/json' },
         body: JSON.stringify({ messages: [...history, { role: 'me', text: q }].slice(-12), tone: settings().tone, lang: LANG }) });
       const j = await r.json().catch(() => ({}));
-      if (r.status === 429) return { busy: Math.min(60, Math.max(5, +j.retryAfter || 20)) };
-      if (!r.ok || !j.reply) return null;
+      if (r.status === 429 || j.error === 'busy') return { busy: Math.min(60, Math.max(5, +j.retryAfter || 20)) };
+      if (!r.ok || !j.reply) return { failed: true };
       return j;
-    } catch {
-      clearTimeout(to);
-      if (attempt < 2) { await sleep(700 * (attempt + 1)); return callAI(q, attempt + 1); }   // network hiccup: retry
-      return { unreachable: true };
-    } finally { clearTimeout(to); }
+    } catch { return { unreachable: true }; } finally { clearTimeout(to); }
+  }
+  async function callAI(q) {
+    // try the address that worked last time first, then the others; each gets one quick retry
+    const list = aiEndpoints(); if (goodEp && list.includes(goodEp)) list.sort((a, b) => (b === goodEp) - (a === goodEp));
+    let last = { unreachable: true };
+    for (const url of list) {
+      for (let attempt = 0; attempt < 2; attempt++) {
+        const j = await callOne(url, q);
+        if (j.reply || j.busy) { if (j.reply) { goodEp = url; try { sessionStorage.setItem('polvon_ai_ep', url); } catch {} } return j; }
+        last = j; if (!j.unreachable) break;
+        await sleep(600);
+      }
+    }
+    return last.unreachable ? last : null;
   }
   async function askAI(q, typing) {
     if (!aiEndpoint()) return null;
@@ -912,9 +928,12 @@
     aiSet?.addEventListener('submit', e => { e.preventDefault(); store.set('ai', { greeting: aiSet.greeting.value, tone: aiSet.tone.value, endpoint: aiSet.endpoint.value.trim() }); toast(tt('Настройки помощника сохранены'));
       const st = $('[data-ai-status]'); const u = aiSet.endpoint.value.trim();
       if (st && u) { st.textContent = tt('Проверяем подключение…');
-        fetch(u, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ messages: [{ role: 'me', text: 'Привет' }] }) })
-          .then(r => r.json().then(j => st.textContent = r.ok && j.reply ? tt('Подключено ✓ Ответ ИИ: ') + j.reply : tt('Ошибка: ') + (j.error || r.status) + (j.detail ? ' — ' + j.detail : '')))
-          .catch(() => st.textContent = tt('Не удалось связаться с сервером. Проверьте адрес и ORIGINS в Cloudflare.')); } });
+        Promise.all(u.split(/[\s,]+/).filter(Boolean).map(url => {
+          const gas = /script\.google/.test(url);
+          return fetch(url, { method: 'POST', redirect: 'follow', headers: { 'Content-Type': gas ? 'text/plain;charset=utf-8' : 'application/json' }, body: JSON.stringify({ messages: [{ role: 'me', text: 'Привет' }] }) })
+            .then(r => r.json().then(j => (gas ? 'Google: ' : 'Cloudflare: ') + (j.reply ? '✓ ' + j.reply : tt('Ошибка: ') + (j.error || r.status) + (j.detail ? ' — ' + j.detail : ''))))
+            .catch(() => (gas ? 'Google: ' : 'Cloudflare: ') + tt('не открывается из этой сети'));
+        })).then(lines => st.textContent = lines.join('  |  ')); } });
     function renderAll() {
       renderKpis(); renderBookings(); renderMenuEditor();
       if (aiSet) { const s = settings(); aiSet.greeting.value = s.greeting; aiSet.tone.value = s.tone; aiSet.endpoint.value = store.get('ai', {}).endpoint || ''; }

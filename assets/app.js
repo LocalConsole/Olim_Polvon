@@ -522,6 +522,28 @@
     // open connections early so the first answer comes faster
     aiEndpoints().forEach(u => fetch(u, { method: /script\.google/.test(u) ? 'GET' : 'OPTIONS', mode: /script\.google/.test(u) ? 'no-cors' : 'cors' }).catch(() => {}));
   }
+  /* ---- wrong keyboard layout: "ghbdtn" → "привет", "ыфдщь" → "salom" ---- */
+  const EN = "`qwertyuiop[]asdfghjkl;'zxcvbnm,.~QWERTYUIOP{}ASDFGHJKL:\"ZXCVBNM<>";
+  const RU = "ёйцукенгшщзхъфывапролджэячсмитьбюЁЙЦУКЕНГШЩЗХЪФЫВАПРОЛДЖЭЯЧСМИТЬБЮ";
+  const swap = (t, from, to) => [...t].map(c => { const i = from.indexOf(c); return i < 0 ? c : to[i]; }).join('');
+  const RU_WORDS = /(^|\s)(я|а|и|в|на|не|что|как|где|когда|сколько|есть|нет|да|вы|мы|ты|у|с|по|за|для|это|мне|можно|хочу|привет|здравствуйте|спасибо|меню|стол|бронь|доставка|цена|стоит|работаете|часы|откуда|какой|какие|посоветуйте|блюдо|шашлык|плов|лагман|норин|уже|ещё|еще|сделал|сделай|давай|ок|пожалуйста|кто|почему|сегодня|завтра|если|возможно|сделаем|можете|хорошо|ладно|нужно|надо|будет|тоже|там|тут|все|всё|или|но|так|вот|сейчас|понял|делать)(?=\s|[?!.,]|$)/g;
+  const UZ_WORDS = /(^|\s)(salom|assalomu|rahmat|qancha|qanaqa|qanday|nima|bormi|bor|yo'q|menga|bizga|stol|bron|osh|norin|kerak|bugun|ertaga|soat|ish|vaqt|yaxshi|necha|kishi|uchun|bilan|qayerda|ha|xop)(?=\s|[?!.,]|$)/g;
+  const hits = (t, re) => (t.toLowerCase().match(re) || []).length;
+  function fixLayout(t) {
+    if (/[a-z]/i.test(t) && !/[а-яё]/i.test(t)) {
+      const ru = swap(t, EN, RU);
+      const odd = /[a-z][;'\[\],.`][a-z]/i.test(t) ? 1 : 0;              // ; ' [ inside a word = typed in the wrong layout
+      // words with almost no Latin vowels ("cltkftv", "hfpdthnsdfybz") are Russian typed on the English layout
+      const junk = t.toLowerCase().split(/\s+/).filter(w => w.length >= 4 && (w.match(/[aeiouy]/g) || []).length / w.length < 0.2).length;
+      const ruScore = hits(ru, RU_WORDS) * 2 + odd + Math.min(2, junk) + (/[аеиоуыэюяё]/.test(ru) ? 0 : -2);
+      const latScore = hits(t, UZ_WORDS) * 2 + (msgLang(t) === 'en' ? 2 : 0);
+      if (ruScore >= 2 && ruScore > latScore) return ru;
+    } else if (/[а-яё]/i.test(t) && !/[ўқғҳ]/i.test(t)) {
+      const lat = swap(t, RU, EN);
+      if (hits(lat, UZ_WORDS) * 2 + (msgLang(lat) === 'en' ? 2 : 0) >= 2 && hits(t, RU_WORDS) === 0) return lat;
+    }
+    return null;
+  }
   // language of a single message: Cyrillic → ru (or uz if Uzbek Cyrillic letters), clear English → en, any other Latin → uz
   function msgLang(t) {
     const w = t.toLowerCase();
@@ -607,6 +629,8 @@
   async function ask(q) {
     if (busy || !q.trim()) return;
     q = q.trim(); addMsg('me', q); aiInput.value = '';
+    const fixed = fixLayout(q);
+    if (fixed) { sysNote(tt('Похоже, другая раскладка — понял так: ') + '«' + fixed + '»'); q = fixed; }
     let r = intent(q);
     // basket and table maths stay local (exact prices); everything else goes to the AI when it is connected
     if (!r.cart && !r.planAll && aiEndpoint()) {

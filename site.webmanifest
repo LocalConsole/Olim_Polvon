@@ -1,0 +1,20 @@
+{
+ "name": "Olim Polvon Milliy Taomlari",
+ "short_name": "Olim Polvon",
+ "start_url": "/",
+ "display": "standalone",
+ "background_color": "#f4ede1",
+ "theme_color": "#f4ede1",
+ "icons": [
+  {
+   "src": "assets/favicon.svg",
+   "sizes": "any",
+   "type": "image/svg+xml"
+  },
+  {
+   "src": "assets/apple-touch-icon.png",
+   "sizes": "180x180",
+   "type": "image/png"
+  }
+ ]
+}

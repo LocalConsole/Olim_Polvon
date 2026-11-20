@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="ru" class="no-js" data-page="admin">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Панель администратора — Olim Polvon</title>
+<meta name="description" content="Служебная страница.">
+<meta name="robots" content="noindex, nofollow">
+<link rel="canonical" href="https://localconsole.github.io/Olim_Polvon/admin.html">
+<meta name="theme-color" content="#f4ede1">
+<meta name="format-detection" content="telephone=no">
+<meta property="og:type" content="restaurant.restaurant">
+<meta property="og:site_name" content="Olim Polvon">
+<meta property="og:locale" content="ru_RU">
+<meta property="og:title" content="Панель администратора — Olim Polvon">
+<meta property="og:description" content="Служебная страница.">
+<meta property="og:url" content="https://localconsole.github.io/Olim_Polvon/admin.html">
+<meta property="og:image" content="https://localconsole.github.io/Olim_Polvon/share.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="geo.region" content="UZ-TK">
+<meta name="geo.placename" content="Ташкент">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+<link rel="manifest" href="site.webmanifest">
+<link rel="preload" href="assets/fonts/CormorantGaramond-normal-600-cyrillic.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="assets/fonts/Manrope-normal-400-700-cyrillic.woff2" as="font" type="font/woff2" crossorigin>
+
+<link rel="stylesheet" href="assets/style.css">
+<script>(function(d){d.classList.replace('no-js','js');try{if(sessionStorage.getItem('polvon_admin')==='1')d.classList.add('is-admin');if(sessionStorage.getItem('polvon_intro')||matchMedia('(prefers-reduced-motion: reduce)').matches)d.classList.add('no-intro')}catch(e){d.classList.add('no-intro')}})(document.documentElement)</script>
+
+</head><body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+<symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></symbol>
+<symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+<symbol id="i-pin" viewBox="0 0 24 24"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></symbol>
+<symbol id="i-phone" viewBox="0 0 24 24"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/></symbol>
+<symbol id="i-send" viewBox="0 0 24 24"><path d="M4 12l16-8-6 16-3-7z"/><path d="M11 13l9-9"/></symbol>
+<symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+<symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+<symbol id="i-pause" viewBox="0 0 24 24"><path d="M9 6v12M15 6v12"/></symbol>
+<symbol id="i-play" viewBox="0 0 24 24"><path d="M8 5.5v13l10-6.5z"/></symbol>
+<symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></symbol>
+<symbol id="i-car" viewBox="0 0 24 24"><path d="M5 16V11l2-5h10l2 5v5M3 16h18v3H3zM7 19v1M17 19v1M5 11h14"/></symbol>
+<symbol id="i-users" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.5a3.5 3.5 0 0 1 0 7M21.5 20a6.5 6.5 0 0 0-4-6"/></symbol>
+<symbol id="i-tg" viewBox="0 0 24 24"><path d="M21 4L3 11l6 2 2 6 3-4 5 4z"/><path d="M9 13l8-6"/></symbol>
+<symbol id="i-ig" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="5"/><circle cx="12" cy="12" r="3.5"/><circle cx="17" cy="7" r=".6"/></symbol>
+<symbol id="i-grid" viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></symbol>
+<symbol id="i-cal" viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/></symbol>
+<symbol id="i-list" viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11M4 6h.01M4 12h.01M4 18h.01"/></symbol>
+<symbol id="i-out" viewBox="0 0 24 24"><path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3M10 16l-4-4 4-4M6 12h10"/></symbol>
+<symbol id="i-edit" viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13 7l4 4"/></symbol>
+<symbol id="mark" viewBox="0 0 40 40"><g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"><rect x="9.5" y="9.5" width="21" height="21" rx="2"/><rect x="9.5" y="9.5" width="21" height="21" rx="2" transform="rotate(45 20 20)"/></g><circle cx="20" cy="20" r="3.6" fill="currentColor"/></symbol>
+</svg>
+<a class="skip" href="#main">Перейти к содержимому</a>
+<div class="admin-bar" role="region" aria-label="Панель администратора">
+  <div class="wrap">
+    <span class="admin-badge"><span class="dot"></span><span class="hide-xs">Режим администратора</span><span class="show-xs">Админ</span></span>
+    <span class="hide-sm" style="opacity:.75">Изменения видны только на этом устройстве (демо)</span>
+    <nav aria-label="Администрирование">
+      <a href="admin.html"><svg class="icon" aria-hidden="true"><use href="#i-grid"/></svg><span class="hide-sm">Панель</span></a>
+      <a href="menu.html"><svg class="icon" aria-hidden="true"><use href="#i-edit"/></svg><span class="hide-sm">Меню</span></a>
+      <button type="button" data-logout><svg class="icon" aria-hidden="true"><use href="#i-out"/></svg>Выйти</button>
+    </nav>
+  </div>
+</div>
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="index.html" aria-label="Olim Polvon, на главную">
+      <svg aria-hidden="true"><use href="#mark"/></svg><span class="brand-word">Olim Polvon</span>
+    </a>
+    <nav class="nav" id="site-nav" aria-label="Основное меню">
+      <a href="index.html">Главная</a>
+<a href="menu.html">Меню</a>
+<a href="about.html">О нас</a>
+<a href="contact.html">Контакты</a>
+      <div class="lang-switch" role="group" aria-label="Язык / Til / Language"><a data-lang="ru" lang="ru" hreflang="ru" href="#">RU</a><a data-lang="uz" lang="uz" hreflang="uz" href="#">UZ</a><a data-lang="en" lang="en" hreflang="en" href="#">EN</a></div>
+      <a class="btn btn--cobalt" href="contact.html#booking">Забронировать стол</a>
+    </nav>
+    <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="site-nav" aria-label="Открыть меню"><span></span><span></span></button>
+  </div>
+</header>
+<main id="main" class="admin-page">
+  <div class="wrap">
+    <form class="admin-login" data-admin-login novalidate hidden>
+      <h1 style="font-size:44px">Вход для персонала</h1>
+      <div class="field"><label for="a-pass">Пароль</label><input id="a-pass" type="password" autocomplete="current-password" required><span class="err" aria-live="polite"></span></div>
+      <button class="btn" type="submit">Войти</button>
+      <p class="hint">Демо-пароль: polvon2026</p>
+    </form>
+    <div class="admin-layout" data-admin-app hidden>
+      <nav class="admin-side" role="tablist" aria-label="Разделы панели">
+        <button role="tab" aria-selected="true" aria-controls="p-overview" id="t-overview"><svg class="icon" aria-hidden="true"><use href="#i-grid"/></svg>Обзор</button>
+        <button role="tab" aria-selected="false" aria-controls="p-bookings" id="t-bookings"><svg class="icon" aria-hidden="true"><use href="#i-cal"/></svg>Брони</button>
+        <button role="tab" aria-selected="false" aria-controls="p-menu" id="t-menu"><svg class="icon" aria-hidden="true"><use href="#i-list"/></svg>Меню и стоп-лист</button>
+        <button role="tab" aria-selected="false" aria-controls="p-ai" id="t-ai"><svg class="icon" aria-hidden="true"><use href="#mark"/></svg>AI-помощник</button>
+      </nav>
+      <div>
+        <section class="admin-panel" id="p-overview" role="tabpanel" aria-labelledby="t-overview">
+          <h1 style="font-size:52px;margin-bottom:24px">Добрый день!</h1>
+          <div class="kpis">
+            <div class="kpi"><span>Заявок на бронь</span><b data-kpi="bookings">0</b></div>
+            <div class="kpi"><span>Блюд в меню</span><b data-kpi="dishes">0</b></div>
+            <div class="kpi"><span>В стоп-листе</span><b data-kpi="stop">0</b></div>
+          </div>
+          <p class="muted">Это демо-панель: данные хранятся в этом браузере. В рабочей версии заявки, меню и стоп-лист будут общими для сайта и Telegram-бота (Cloudflare Workers + D1).</p>
+        </section>
+        <section class="admin-panel" id="p-bookings" role="tabpanel" aria-labelledby="t-bookings" hidden>
+          <h2>Заявки на бронь</h2>
+          <div class="table-wrap" data-bookings></div>
+        </section>
+        <section class="admin-panel" id="p-menu" role="tabpanel" aria-labelledby="t-menu" hidden>
+          <h2>Меню и стоп-лист</h2>
+          <p class="muted" style="margin:-8px 0 20px">Цена и стоп-лист сразу меняются на странице меню и в ответах AI-помощника.</p>
+          <div class="table-wrap" data-menu-editor></div>
+          <div style="display:flex;gap:12px;margin-top:20px"><button class="btn btn--ghost" type="button" data-menu-reset>Сбросить изменения</button></div>
+        </section>
+        <section class="admin-panel" id="p-ai" role="tabpanel" aria-labelledby="t-ai" hidden>
+          <h2>AI-помощник</h2>
+          <form class="admin-form" data-ai-settings>
+            <div class="field"><label for="ai-greet">Приветствие</label><textarea id="ai-greet" name="greeting"></textarea></div>
+            <div class="field"><label for="ai-tone">Тон ответов</label><select id="ai-tone" name="tone"><option value="warm">Тёплый, на «вы»</option><option value="short">Коротко и по делу</option><option value="fun">С юмором</option></select></div>
+            <div class="field"><label for="ai-model">Модель</label><select id="ai-model" name="model" disabled><option>Gemini — подключим при запуске</option></select><span class="hint">Сейчас помощник отвечает по заготовленным сценариям.</span></div>
+            <div><button class="btn" type="submit">Сохранить</button></div>
+          </form>
+        </section>
+      </div>
+    </div>
+  </div>
+</main>
+<footer class="site-footer">
+  <div class="wrap">
+    <div class="footer-top">
+      <div>
+        <h2>Olim Polvon</h2>
+        <p class="footer-lede">Семейный ресторан узбекской, уйгурской и европейской кухни на Большой кольцевой. Доставка: +998 90 916 77 74.</p>
+      </div>
+      <div>
+        <h3>Адрес</h3>
+        <ul>
+          <li><a href="https://yandex.uz/maps/org/89114477009/" target="_blank" rel="noopener">Катта халқа йўли, «Эркин»</a></li>
+          <li><a href="tel:+998953434343">+998 95 343 43 43</a></li>
+        </ul>
+      </div>
+      <div>
+        <h3>Часы работы</h3>
+        <div class="hours"><span>Ежедневно</span><span>06:00 – 23:00</span></div>
+      </div>
+      <div>
+        <h3>Сайт</h3>
+        <ul>
+          <li><a href="menu.html">Меню и цены</a></li>
+          <li><a href="contact.html#booking">Бронь стола</a></li>
+          <li><a href="https://t.me/Olimpolvon_bot" target="_blank" rel="noopener">Telegram-бот</a></li><li><a href="https://t.me/olim_polvon" target="_blank" rel="noopener">Telegram-канал</a></li>
+          <li><a href="https://instagram.com/_olim_polvon" target="_blank" rel="noopener">Instagram</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>© 2026 Olim Polvon. <a href="about.html#credits">Фото и лицензии</a></span>
+      <button class="staff-login" type="button" data-staff-login><svg class="icon" aria-hidden="true"><use href="#i-lock"/></svg>Вход для персонала</button>
+    </div>
+  </div>
+</footer>
+
+<dialog class="modal" id="staff-modal" aria-labelledby="staff-title">
+  <form class="modal-body" method="dialog" data-login-form novalidate>
+    <h2 id="staff-title">Вход для персонала</h2>
+    <p class="muted">Откроет режим администратора: правка меню, стоп-лист и заявки на бронь.</p>
+    <div class="field">
+      <label for="staff-pass">Пароль</label>
+      <input id="staff-pass" name="password" type="password" autocomplete="current-password" required>
+      <span class="err" aria-live="polite"></span>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn--ghost" type="button" data-close>Отмена</button>
+      <button class="btn" type="submit">Войти</button>
+    </div>
+    <p class="hint">Демо-пароль: polvon2026</p>
+  </form>
+</dialog>
+
+<div class="ai-hello" data-ai-hello hidden><button type="button" class="ai-hello-close" data-hello-close aria-label="Скрыть"><svg class="icon" aria-hidden="true"><use href="#i-close"/></svg></button><button type="button" class="ai-hello-text" data-ai-open>Ассалому алайкум! Помочь выбрать блюдо?</button></div>
+<button class="ai-launch" type="button" data-ai-open aria-controls="ai-panel" aria-expanded="false">
+  <span class="ai-mascot"><svg class="mascot " viewBox="0 0 64 64" aria-hidden="true">
+  <g class="m-all">
+    <ellipse cx="32" cy="60" rx="15" ry="2.6" fill="rgba(0,0,0,.12)" class="m-shadow"/>
+    <g class="m-body">
+      <circle cx="32" cy="37" r="21" fill="#d9894a"/>
+      <circle cx="32" cy="37" r="17.5" fill="#efb46c"/>
+      <circle cx="32" cy="37" r="17.5" fill="none" stroke="#d9894a" stroke-width="1" stroke-dasharray="1.5 3.2" opacity=".7"/>
+      <g fill="#fff3dc" opacity=".9"><ellipse cx="17" cy="30" rx="1" ry=".6" transform="rotate(-30 17 30)"/><ellipse cx="47" cy="31" rx="1" ry=".6" transform="rotate(30 47 31)"/><ellipse cx="45" cy="47" rx="1" ry=".6"/><ellipse cx="19" cy="46" rx="1" ry=".6"/></g>
+      <ellipse class="m-cheek" cx="21.5" cy="43" rx="3.6" ry="2.1" fill="#ef7f6e" opacity=".55"/>
+      <ellipse class="m-cheek" cx="42.5" cy="43" rx="3.6" ry="2.1" fill="#ef7f6e" opacity=".55"/>
+      <g class="m-eyes">
+        <g class="m-eye"><ellipse cx="25.5" cy="37" rx="2.7" ry="3.3" fill="#2a1d14"/><circle cx="26.4" cy="35.8" r=".9" fill="#fff"/></g>
+        <g class="m-eye"><ellipse cx="38.5" cy="37" rx="2.7" ry="3.3" fill="#2a1d14"/><circle cx="39.4" cy="35.8" r=".9" fill="#fff"/></g>
+      </g>
+      <path class="m-smile" d="M28.5 43.2 Q32 46.6 35.5 43.2" fill="none" stroke="#2a1d14" stroke-width="1.9" stroke-linecap="round"/>
+      <ellipse class="m-mouth" cx="32" cy="44.3" rx="2.6" ry="2.2" fill="#5a2418"/>
+    </g>
+    <g class="m-cap">
+      <path d="M17.5 21.5 L46.5 21.5 L43.5 11.5 Q32 6.5 20.5 11.5 Z" fill="#1d1915"/>
+      <rect x="17" y="19.6" width="30" height="2.6" rx="1.2" fill="#1c4c9c"/>
+      <g fill="none" stroke="#fbf7f0" stroke-width="1.1" stroke-linecap="round"><path d="M24 17.5 q1.5-4 4-3.5"/><path d="M31 17 q1.2-4.2 3.6-4"/><path d="M38 17.5 q1.2-3.6 3.4-3"/></g>
+    </g>
+  </g>
+</svg></span><span class="ai-launch-label">Спросить помощника</span>
+</button>
+<section class="ai-panel" id="ai-panel" role="dialog" aria-label="Ёрдамчи, AI-помощник ресторана" aria-modal="false">
+  <div class="ai-head">
+    <span class="ai-ava ai-ava--mascot" data-ai-ava><svg class="mascot " viewBox="0 0 64 64" aria-hidden="true">
+  <g class="m-all">
+    <ellipse cx="32" cy="60" rx="15" ry="2.6" fill="rgba(0,0,0,.12)" class="m-shadow"/>
+    <g class="m-body">
+      <circle cx="32" cy="37" r="21" fill="#d9894a"/>
+      <circle cx="32" cy="37" r="17.5" fill="#efb46c"/>
+      <circle cx="32" cy="37" r="17.5" fill="none" stroke="#d9894a" stroke-width="1" stroke-dasharray="1.5 3.2" opacity=".7"/>
+      <g fill="#fff3dc" opacity=".9"><ellipse cx="17" cy="30" rx="1" ry=".6" transform="rotate(-30 17 30)"/><ellipse cx="47" cy="31" rx="1" ry=".6" transform="rotate(30 47 31)"/><ellipse cx="45" cy="47" rx="1" ry=".6"/><ellipse cx="19" cy="46" rx="1" ry=".6"/></g>
+      <ellipse class="m-cheek" cx="21.5" cy="43" rx="3.6" ry="2.1" fill="#ef7f6e" opacity=".55"/>
+      <ellipse class="m-cheek" cx="42.5" cy="43" rx="3.6" ry="2.1" fill="#ef7f6e" opacity=".55"/>
+      <g class="m-eyes">
+        <g class="m-eye"><ellipse cx="25.5" cy="37" rx="2.7" ry="3.3" fill="#2a1d14"/><circle cx="26.4" cy="35.8" r=".9" fill="#fff"/></g>
+        <g class="m-eye"><ellipse cx="38.5" cy="37" rx="2.7" ry="3.3" fill="#2a1d14"/><circle cx="39.4" cy="35.8" r=".9" fill="#fff"/></g>
+      </g>
+      <path class="m-smile" d="M28.5 43.2 Q32 46.6 35.5 43.2" fill="none" stroke="#2a1d14" stroke-width="1.9" stroke-linecap="round"/>
+      <ellipse class="m-mouth" cx="32" cy="44.3" rx="2.6" ry="2.2" fill="#5a2418"/>
+    </g>
+    <g class="m-cap">
+      <path d="M17.5 21.5 L46.5 21.5 L43.5 11.5 Q32 6.5 20.5 11.5 Z" fill="#1d1915"/>
+      <rect x="17" y="19.6" width="30" height="2.6" rx="1.2" fill="#1c4c9c"/>
+      <g fill="none" stroke="#fbf7f0" stroke-width="1.1" stroke-linecap="round"><path d="M24 17.5 q1.5-4 4-3.5"/><path d="M31 17 q1.2-4.2 3.6-4"/><path d="M38 17.5 q1.2-3.6 3.4-3"/></g>
+    </g>
+  </g>
+</svg></span>
+    <div><b>Ёрдамчи</b><span class="ai-status">AI-помощник Olim Polvon</span></div>
+    <button class="ai-close" type="button" data-ai-close aria-label="Закрыть чат"><svg class="icon" aria-hidden="true"><use href="#i-close"/></svg></button>
+  </div>
+  <div class="ai-msgs" data-ai-msgs aria-live="polite"></div>
+  <div class="ai-chips" data-ai-chips></div>
+  <div>
+    <form class="ai-form" data-ai-form>
+      <label class="sr-only" for="ai-input">Сообщение</label>
+      <input id="ai-input" type="text" placeholder="Спросите про меню или бронь" autocomplete="off" maxlength="300">
+      <button class="ai-send" type="submit" aria-label="Отправить"><svg class="icon" aria-hidden="true"><use href="#i-send"/></svg></button>
+    </form>
+    <p class="ai-foot">Демо-версия: ответы пока заготовлены, подключим Gemini позже</p>
+  </div>
+</section>
+<div class="toast-host" aria-live="polite"></div>
+<script id="menu-data" type="application/json">[{"id": "shashlyk-kuskovoy-iz-baraniny", "key": "Шашлык кусковой из баранины", "cat": "kabob", "catTitle": "Шашлык и кабобы", "name": "Шашлык кусковой из баранины", "desc": "Мякоть баранины на углях, с луком", "weight": "100 г", "price": 37800, "tags": ["hit"], "img": null}, {"id": "shashlyk-molotyy", "key": "Шашлык молотый", "cat": "kabob", "catTitle": "Шашлык и кабобы", "name": "Шашлык молотый", "desc": "Рубленая баранина с курдюком", "weight": "110 г", "price": 35100, "tags": [], "img": null}, {"id": "shashlyk-iz-kuricy", "key": "Шашлык из курицы", "cat": "kabob", "catTitle": "Шашлык и кабобы", "name": "Шашлык из курицы", "desc": "Куриное филе в маринаде", "weight": "100 г", "price": 28350, "tags": [], "img": null}, {"id": "tahta-kabob", "key": "Тахта кабоб", "cat": "kabob", "catTitle": "Шашлык и кабобы", "name": "Тахта кабоб", "desc": "Подаётся на деревянной доске", "weight": "1 порция", "price": null, "tags": [], "img": null}, {"id": "napoleon-kabob", "key": "Наполеон кабоб", "cat": "kabob", "catTitle": "Шашлык и кабобы", "name": "Наполеон кабоб", "desc": "Слоёный кабоб, одна из визитных карточек дома", "weight": "1 порция", "price": null, "tags": ["hit"], "img": null}, {"id": "kavkaz-kabob", "key": "Кавказ кабоб", "cat": "kabob", "catTitle": "Шашлык и кабобы", "name": "Кавказ кабоб", "desc": "Кабоб по-кавказски", "weight": "1 порция", "price": null, "tags": [], "img": null}, {"id": "gizhduvan-қiyma-kabob", "key": "Гиждуван қийма кабоб", "cat": "kabob", "catTitle": "Шашлык и кабобы", "name": "Гиждуван қийма кабоб", "desc": "Рубленое мясо по-гиждувански", "weight": "1 шампур", "price": null, "tags": [], "img": null}, {"id": "baliқ-kabob", "key": "Балиқ кабоб", "cat": "kabob", "catTitle": "Шашлык и кабобы", "name": "Балиқ кабоб", "desc": "Рыба на мангале", "weight": "1 порция", "price": null, "tags": [], "img": null}, {"id": "norin", "key": "Норин", "cat": "milliy", "catTitle": "Национальные блюда", "name": "Норин", "desc": "Тонко нарезанное тесто и конина, по-ташкентски", "weight": "250 г", "price": 67500, "tags": ["hit"], "img": null}, {"id": "norin-s-kazy", "key": "Норин с казы", "cat": "milliy", "catTitle": "Национальные блюда", "name": "Норин с казы", "desc": "Большая порция на компанию, с казы", "weight": "1 кг", "price": 189000, "tags": [], "img": null}, {"id": "beshbarmak", "key": "Бешбармак", "cat": "milliy", "catTitle": "Национальные блюда", "name": "Бешбармак", "desc": "Тесто, отварное мясо, лук, бульон отдельно", "weight": "600 г", "price": 118800, "tags": [], "img": null}, {"id": "halim-s-govyadinoy", "key": "Халим с говядиной", "cat": "milliy", "catTitle": "Национальные блюда", "name": "Халим с говядиной", "desc": "Пшеница, томлённая с говядиной до однородности", "weight": "400 г", "price": 81000, "tags": [], "img": null}, {"id": "zharkop", "key": "Жаркоп", "cat": "milliy", "catTitle": "Национальные блюда", "name": "Жаркоп", "desc": "Мясо с картофелем, томлённое в казане", "weight": "1 порция", "price": null, "tags": [], "img": null}, {"id": "uzbekskiy-plov", "key": "Узбекский плов", "cat": "milliy", "catTitle": "Национальные блюда", "name": "Узбекский плов", "desc": "Рис, говядина, жёлтая морковь, нут", "weight": "1 порция", "price": null, "tags": ["hit"], "img": "assets/img/plate-own-plov.webp"}, {"id": "tandir-gўsht", "key": "Тандир гўшт", "cat": "milliy", "catTitle": "Национальные блюда", "name": "Тандир гўшт", "desc": "Баранина, запечённая в тандире, с луком", "weight": "1 порция", "price": null, "tags": [], "img": "assets/img/plate-own-tandir.webp"}, {"id": "yupқa", "key": "Юпқа", "cat": "milliy", "catTitle": "Национальные блюда", "name": "Юпқа", "desc": "Тонкие лепёшки-конверты из теста, обжаренные на сковороде", "weight": "1 порция", "price": null, "tags": [], "img": "assets/img/plate-own-yupqa.webp"}, {"id": "dolma", "key": "Долма", "cat": "milliy", "catTitle": "Национальные блюда", "name": "Долма", "desc": "Виноградные листья с мясом и рисом", "weight": "1 порция", "price": null, "tags": [], "img": "assets/img/plate-own-dolma.webp"}, {"id": "қovurma-laғmon", "key": "Қовурма лағмон", "cat": "lagman", "catTitle": "Лагман", "name": "Қовурма лағмон", "desc": "Жареная тянутая лапша с мясом, перцем и чесноком", "weight": "400 г", "price": 62100, "tags": ["hit", "spicy"], "img": null}, {"id": "lagman-s-myasom", "key": "Лагман с мясом", "cat": "lagman", "catTitle": "Лагман", "name": "Лагман с мясом", "desc": "Тянутая лапша с мясной заправкой", "weight": "350 г", "price": 66150, "tags": [], "img": null}, {"id": "uygurskiy-lagman", "key": "Уйгурский лагман", "cat": "lagman", "catTitle": "Лагман", "name": "Уйгурский лагман", "desc": "Лапша отдельно, заправка с овощами", "weight": "1 порция", "price": null, "tags": ["spicy"], "img": null}, {"id": "ilik-shўrva", "key": "Илик шўрва", "cat": "soups", "catTitle": "Супы", "name": "Илик шўрва", "desc": "Суп на мозговой кости", "weight": "1 порция", "price": null, "tags": [], "img": null}, {"id": "nўhat-shўrak", "key": "Нўхат шўрак", "cat": "soups", "catTitle": "Супы", "name": "Нўхат шўрак", "desc": "Нут с мясом в наваристом бульоне", "weight": "1 порция", "price": null, "tags": [], "img": null}, {"id": "medovik", "key": "Медовик", "cat": "desserts", "catTitle": "Десерты", "name": "Медовик", "desc": "Медовые коржи со сметанным кремом", "weight": "1 кусок", "price": null, "tags": [], "img": "assets/img/photo-own-medovik-500.webp"}, {"id": "kazy-iz-koniny", "key": "Казы из конины", "cat": "meat", "catTitle": "Мясной центр", "name": "Казы из конины", "desc": "Домашняя колбаса из конины", "weight": "1 кг", "price": null, "tags": [], "img": "assets/img/photo-own-tandir-butun-500.webp"}, {"id": "rulet-iz-koniny", "key": "Рулет из конины", "cat": "meat", "catTitle": "Мясной центр", "name": "Рулет из конины", "desc": "", "weight": "1 кг", "price": null, "tags": [], "img": null}, {"id": "govyazhiy-rulet", "key": "Говяжий рулет", "cat": "meat", "catTitle": "Мясной центр", "name": "Говяжий рулет", "desc": "", "weight": "1 кг", "price": null, "tags": [], "img": null}, {"id": "tandir-rulet-iz-baraniny", "key": "Тандир-рулет из баранины", "cat": "meat", "catTitle": "Мясной центр", "name": "Тандир-рулет из баранины", "desc": "", "weight": "1 кг", "price": null, "tags": [], "img": null}, {"id": "kopchenaya-kurica", "key": "Копчёная курица", "cat": "meat", "catTitle": "Мясной центр", "name": "Копчёная курица", "desc": "", "weight": "1 шт", "price": null, "tags": [], "img": null}]</script>
+<script src="assets/app.js" defer></script>
+</body>
+</html>

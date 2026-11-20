@@ -685,9 +685,65 @@
   /* ---------------- booking form ---------------- */
   const booking = $('[data-booking]');
   if (booking) {
-    const date = $('#b-date'); const today = new Date(); const iso = d => d.toISOString().slice(0, 10);
-    date.min = iso(today); const tm = new Date(today); tm.setDate(tm.getDate() + 1); date.value = iso(tm);
-    $('#b-time').value = '19:00';
+    const date = $('#b-date'), time = $('#b-time'); const today = new Date();
+    const iso = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    date.min = iso(today); const tm = new Date(today); tm.setDate(tm.getDate() + 1);
+    // tap-to-pick: 21 days ahead, 30-minute slots
+    const daysBox = $('[data-days]'), timesBox = $('[data-times]');
+    const SLOTS = []; for (let h = 10; h <= 22; h++) for (const m of [0, 30]) if (!(h === 22 && m === 30)) SLOTS.push(`${String(h).padStart(2, '0')}:${m ? '30' : '00'}`);
+    const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
+    const WD = { ru: ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'], uz: ['Yak', 'Du', 'Se', 'Chor', 'Pay', 'Ju', 'Sha'], en: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] }[LANG] || [];
+    const MO = { ru: ['янв', 'фев', 'мар', 'апр', 'мая', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'], uz: ['yan', 'fev', 'mar', 'apr', 'may', 'iyn', 'iyl', 'avg', 'sen', 'okt', 'noy', 'dek'], en: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'] }[LANG] || [];
+    function renderDays() {
+      daysBox.innerHTML = '';
+      for (let i = 0; i < 21; i++) {
+        const d = new Date(today); d.setDate(today.getDate() + i);
+        const b = document.createElement('button'); b.type = 'button'; b.className = 'day'; b.dataset.v = iso(d); b.setAttribute('role', 'radio');
+        const top = i === 0 ? tt('Сегодня') : i === 1 ? tt('Завтра') : WD[d.getDay()];
+        b.innerHTML = `<small>${esc(top)}</small><b>${d.getDate()}</b><small>${esc(MO[d.getMonth()])}</small>`;
+        if (d.getDay() === 0 || d.getDay() === 6) b.classList.add('is-weekend');
+        b.addEventListener('click', () => setDate(b.dataset.v, true));
+        daysBox.append(b);
+      }
+    }
+    function renderTimes() {
+      timesBox.innerHTML = '';
+      const now = new Date(); const isToday = date.value === iso(now);
+      const groups = [[tt('Днём'), SLOTS.filter(t => t < '17:00')], [tt('Вечером'), SLOTS.filter(t => t >= '17:00')]];
+      groups.forEach(([title, list]) => {
+        const g = document.createElement('div'); g.className = 'time-group'; g.innerHTML = `<span>${esc(title)}</span>`;
+        const row = document.createElement('div'); row.className = 'time-row';
+        list.forEach(t => {
+          const b = document.createElement('button'); b.type = 'button'; b.className = 'slot'; b.textContent = t; b.dataset.v = t; b.setAttribute('role', 'radio');
+          const [h, m] = t.split(':').map(Number);
+          if (isToday && h * 60 + m < now.getHours() * 60 + now.getMinutes() + 60) { b.disabled = true; }
+          b.addEventListener('click', () => setTime(t));
+          row.append(b);
+        });
+        g.append(row); timesBox.append(g);
+      });
+      const cur = $(`.slot[data-v="${time.value}"]:not(:disabled)`, timesBox) || $('.slot:not(:disabled)', timesBox);
+      setTime(cur ? cur.dataset.v : '');
+    }
+    function setDate(v, user) {
+      date.value = v;
+      $$('.day', daysBox).forEach(b => { const on = b.dataset.v === v; b.classList.toggle('is-on', on); b.setAttribute('aria-checked', on); b.tabIndex = on ? 0 : -1; });
+      const on = $('.day.is-on', daysBox);
+      if (on && user) on.scrollIntoView({ inline: 'center', block: 'nearest', behavior: reduce ? 'auto' : 'smooth' });
+      renderTimes();
+    }
+    function setTime(v) {
+      time.value = v;
+      $$('.slot', timesBox).forEach(b => { const on = b.dataset.v === v; b.classList.toggle('is-on', on); b.setAttribute('aria-checked', on); });
+    }
+    $$('[data-scroll="days"]', booking).forEach(n => n.addEventListener('click', () => daysBox.scrollBy({ left: +n.dataset.dir * daysBox.clientWidth * 0.8, behavior: reduce ? 'auto' : 'smooth' })));
+    // arrow keys move between days
+    daysBox.addEventListener('keydown', e => {
+      if (!['ArrowLeft', 'ArrowRight'].includes(e.key)) return; e.preventDefault();
+      const all = $$('.day', daysBox); const i = all.findIndex(b => b.classList.contains('is-on'));
+      const n = all[Math.min(all.length - 1, Math.max(0, i + (e.key === 'ArrowRight' ? 1 : -1)))]; setDate(n.dataset.v, true); n.focus();
+    });
+    renderDays(); time.value = '19:00'; setDate(iso(tm));
     let guests = 2; const out = $('[data-guests]');
     $$('[data-g]', booking).forEach(b => b.addEventListener('click', () => {
       guests = Math.min(40, Math.max(1, guests + Number(b.dataset.g))); out.textContent = guests;
@@ -705,14 +761,16 @@
         const good = test(inp.value); f.toggleAttribute('data-invalid', !good); f.querySelector('.err').textContent = good ? '' : msg;
         if (!good && ok) { ok = false; inp.focus(); }
       });
+      if (ok && !time.value) { ok = false; const f = time.closest('.field'); f.toggleAttribute('data-invalid', true); f.querySelector('.err').textContent = tt('Выберите время'); }
+      else time.closest('.field').toggleAttribute('data-invalid', false);
       if (!ok) return;
       const b = { id: Date.now(), name: booking.elements.name.value.trim(), phone: booking.elements.phone.value.trim(), date: date.value, time: booking.elements.time.value, guests, zone: booking.elements.zone.value, note: booking.elements.note.value.trim(), status: 'new' };
       const list = store.get('bookings', []); list.unshift(b); store.set('bookings', list);
-      const d = new Date(b.date + 'T00:00').toLocaleDateString(LOCALE, { day: 'numeric', month: 'long', weekday: 'long' });
+      const dd = new Date(b.date + 'T00:00'); const d = `${dd.getDate()} ${MO[dd.getMonth()]} (${WD[dd.getDay()]})`;
       $('[data-success-text]').textContent = tt('{name}, ждём вас {date} в {time}, гостей: {n}.').replace('{name}', b.name).replace('{date}', d).replace('{time}', b.time).replace('{n}', b.guests);
       booking.hidden = true; success.classList.add('is-on'); success.querySelector('h2').setAttribute('tabindex', '-1'); success.querySelector('h2').focus();
     });
-    $('[data-again]')?.addEventListener('click', () => { success.classList.remove('is-on'); booking.hidden = false; booking.reset(); guests = 2; out.textContent = 2; date.value = iso(tm); $('#b-time').value = '19:00'; });
+    $('[data-again]')?.addEventListener('click', () => { success.classList.remove('is-on'); booking.hidden = false; booking.reset(); guests = 2; out.textContent = 2; time.value = '19:00'; setDate(iso(tm)); });
   }
 
   /* ---------------- ADMIN page ---------------- */
@@ -777,6 +835,23 @@
     }
     show();
   }
+})();
+
+/* ---------------- maps: load when scrolled near, switch Yandex / Google ---------------- */
+(() => {
+  document.querySelectorAll('[data-map]').forEach(card => {
+    const frames = card.querySelectorAll('[data-frame]'), pin = card.querySelector('.map-pin');
+    const load = f => { if (!f.src) { setTimeout(() => { if (!f.classList.contains('is-loaded')) pin.querySelector('span').textContent = tt('Карта не загрузилась — откройте её по кнопке ниже'); }, 9000); f.src = f.dataset.src; f.addEventListener('load', () => { f.classList.add('is-loaded'); if (!f.hidden) pin.classList.add('is-gone'); }, { once: true }); } };
+    const show = k => {
+      card.querySelectorAll('[data-map-tab]').forEach(t => t.setAttribute('aria-selected', String(t.dataset.mapTab === k)));
+      frames.forEach(f => { const on = f.dataset.frame === k; f.hidden = !on; if (on) { load(f); pin.classList.toggle('is-gone', f.classList.contains('is-loaded')); } });
+    };
+    card.querySelectorAll('[data-map-tab]').forEach(t => t.addEventListener('click', () => show(t.dataset.mapTab)));
+    if ('IntersectionObserver' in window) {
+      const io = new IntersectionObserver(([e]) => { if (e.isIntersecting) { show('y'); io.disconnect(); } }, { rootMargin: '300px' });
+      io.observe(card);
+    } else show('y');
+  });
 })();
 
 /* ---------------- theme (light / dark) + ornament in-view ---------------- */

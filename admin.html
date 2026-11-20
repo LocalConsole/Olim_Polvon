@@ -124,7 +124,7 @@
           <form class="admin-form" data-ai-settings>
             <div class="field"><label for="ai-greet">Приветствие</label><textarea id="ai-greet" name="greeting"></textarea></div>
             <div class="field"><label for="ai-tone">Тон ответов</label><select id="ai-tone" name="tone"><option value="warm">Тёплый, на «вы»</option><option value="short">Коротко и по делу</option><option value="fun">С юмором</option></select></div>
-            <div class="field"><label for="ai-model">Модель</label><select id="ai-model" name="model" disabled><option>Gemini — подключим при запуске</option></select><span class="hint">Сейчас помощник отвечает по заготовленным сценариям.</span></div>
+            <div class="field"><label for="ai-endpoint">Адрес AI-сервера (Cloudflare Worker)</label><input id="ai-endpoint" name="endpoint" type="url" placeholder="https://olim-ai.….workers.dev"><span class="hint" data-ai-status>Пусто — помощник отвечает по заготовленным сценариям. Ключ Gemini хранится только в Cloudflare.</span></div>
             <div><button class="btn" type="submit">Сохранить</button></div>
           </form>
         </section>
@@ -210,7 +210,7 @@
   </g>
 </svg></span><span class="ai-launch-label">Спросить помощника</span>
 </button>
-<section class="ai-panel" id="ai-panel" role="dialog" aria-label="Ёрдамчи, AI-помощник ресторана" aria-modal="false">
+<section class="ai-panel" id="ai-panel" data-ai-endpoint="" role="dialog" aria-label="Ёрдамчи, AI-помощник ресторана" aria-modal="false">
   <div class="ai-head">
     <span class="ai-ava ai-ava--mascot" data-ai-ava><svg class="mascot " viewBox="0 0 64 64" aria-hidden="true">
   <g class="m-all">

@@ -418,7 +418,7 @@
     busy = true; ava?.classList.add('is-thinking');
     const typing = document.createElement('div'); typing.className = 'msg msg--bot typing pop'; typing.innerHTML = '<i></i><i></i><i></i>';
     msgs.append(typing); scrollDown();
-    await sleep(reduce ? 200 : 650 + Math.random() * 400);
+    await sleep(reduce || extra.fast ? 120 : 650 + Math.random() * 400);
     typing.remove();
     ava?.classList.remove('is-thinking'); ava?.classList.add('is-talking');
     const m = addMsg('bot', ''); await stream(m, text);
@@ -459,10 +459,39 @@
     chipsBox.innerHTML = '';
     CHIPS.forEach((c, i) => { const b = document.createElement('button'); b.type = 'button'; b.textContent = c; b.style.animationDelay = i * 40 + 'ms'; b.addEventListener('click', () => ask(c)); chipsBox.append(b); });
   }
+  /* ---- live AI through the Cloudflare Worker (key never reaches the browser) ---- */
+  const aiEndpoint = () => (store.get('ai', {}).endpoint || panel?.dataset.aiEndpoint || '').trim();
+  const history = [];
+  if (aiEndpoint()) { const f = $('.ai-foot'); if (f) f.textContent = tt('Отвечает ИИ Gemini. Может ошибаться — уточняйте у администратора.'); }
+  function matchDishes(names) {
+    const m = getMenu().filter(d => !d.stop); const n = s => norm(s).replace(/[«»"]/g, '');
+    return (names || []).map(x => m.find(d => n(d.key) === n(x)) || m.find(d => n(d.key + ' ' + (d.alt || '')).includes(n(x)))).filter((d, i, a) => d && a.indexOf(d) === i);
+  }
+  async function askAI(q) {
+    const url = aiEndpoint(); if (!url) return null;
+    const ctl = new AbortController(); const to = setTimeout(() => ctl.abort(), 15000);
+    try {
+      const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: ctl.signal,
+        body: JSON.stringify({ messages: [...history, { role: 'me', text: q }].slice(-10), tone: settings().tone, lang: LANG }) });
+      if (!r.ok) return null;
+      const j = await r.json(); if (!j.reply) return null;
+      return { text: j.reply, cards: matchDishes(j.dishes) };
+    } catch { return null; } finally { clearTimeout(to); }
+  }
   async function ask(q) {
     if (busy || !q.trim()) return;
-    addMsg('me', q.trim()); aiInput.value = '';
-    const r = intent(q); await botReply(r.text, r);
+    q = q.trim(); addMsg('me', q); aiInput.value = '';
+    let r = intent(q);
+    // basket and table maths stay local (exact prices); everything else goes to the AI when it is connected
+    if (!r.cart && !r.planAll && aiEndpoint()) {
+      busy = true; ava?.classList.add('is-thinking');
+      const typing = document.createElement('div'); typing.className = 'msg msg--bot typing pop'; typing.innerHTML = '<i></i><i></i><i></i>'; msgs.append(typing); scrollDown();
+      const ai = await askAI(q);
+      typing.remove(); busy = false;
+      if (ai) { r = ai; r.fast = true; }
+    }
+    history.push({ role: 'me', text: q }, { role: 'bot', text: r.text }); if (history.length > 20) history.splice(0, history.length - 20);
+    await botReply(r.text, r);
   }
   function openAI() {
     if (!panel) return;
@@ -833,10 +862,15 @@
     });
     $('[data-menu-reset]')?.addEventListener('click', () => { store.del('menu'); store.del('custom'); renderMenuEditor(); renderKpis(); toast(tt('Меню сброшено к исходному')); });
     const aiSet = $('[data-ai-settings]');
-    aiSet?.addEventListener('submit', e => { e.preventDefault(); store.set('ai', { greeting: aiSet.greeting.value, tone: aiSet.tone.value }); toast(tt('Настройки помощника сохранены')); });
+    aiSet?.addEventListener('submit', e => { e.preventDefault(); store.set('ai', { greeting: aiSet.greeting.value, tone: aiSet.tone.value, endpoint: aiSet.endpoint.value.trim() }); toast(tt('Настройки помощника сохранены'));
+      const st = $('[data-ai-status]'); const u = aiSet.endpoint.value.trim();
+      if (st && u) { st.textContent = tt('Проверяем подключение…');
+        fetch(u, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ messages: [{ role: 'me', text: 'Привет' }] }) })
+          .then(r => r.json().then(j => st.textContent = r.ok && j.reply ? tt('Подключено ✓ Ответ ИИ: ') + j.reply : tt('Ошибка: ') + (j.error || r.status) + (j.detail ? ' — ' + j.detail : '')))
+          .catch(() => st.textContent = tt('Не удалось связаться с сервером. Проверьте адрес и ORIGINS в Cloudflare.')); } });
     function renderAll() {
       renderKpis(); renderBookings(); renderMenuEditor();
-      if (aiSet) { const s = settings(); aiSet.greeting.value = s.greeting; aiSet.tone.value = s.tone; }
+      if (aiSet) { const s = settings(); aiSet.greeting.value = s.greeting; aiSet.tone.value = s.tone; aiSet.endpoint.value = store.get('ai', {}).endpoint || ''; }
     }
     show();
   }

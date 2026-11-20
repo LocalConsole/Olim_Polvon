@@ -386,9 +386,11 @@
     const f = findDishes(t);
     if (f.length) return { text: f.length === 1 ? `${f[0].name}${f[0].desc ? ' — ' + f[0].desc.toLowerCase() : ''}. ${f[0].price ? fmt(f[0].price) : ''}` : tt('Вот что нашёл в меню:'), cards: f };
     // simple mode (AI not connected or busy): vary the wording instead of repeating one line
-    const FALLBACK = [tt('Не совсем понял вопрос. Спросите про блюдо, доставку, бронь или часы работы.'),
-                      tt('Уточните, пожалуйста: вас интересует меню, бронь стола или доставка?'),
-                      tt('Могу подсказать по меню, собрать заказ или помочь с бронью. Что именно нужно?')];
+    const FB = {
+      ru: ['Не совсем понял вопрос. Спросите про блюдо, доставку, бронь или часы работы.', 'Уточните, пожалуйста: вас интересует меню, бронь стола или доставка?', 'Могу подсказать по меню, собрать заказ или помочь с бронью. Что именно нужно?'],
+      uz: ["Savolni unchalik tushunmadim. Taom, yetkazib berish, bron yoki ish vaqti haqida so'rang.", "Aniqlashtiring: sizni menyu, stol bron qilish yoki yetkazib berish qiziqtiradimi?", "Menyu bo'yicha maslahat beraman, buyurtma yig'aman yoki bron qilishga yordam beraman. Nima kerak?"],
+      en: ["I didn't quite get that. Ask about a dish, delivery, booking or opening hours.", "Could you clarify: the menu, booking a table or delivery?", "I can help with the menu, put together an order or book a table. What do you need?"] };
+    const FALLBACK = FB[msgLang(text)] || FB.ru;
     return { text: FALLBACK[(fallbackN++) % FALLBACK.length] };
   }
 
@@ -487,6 +489,17 @@
     if (aiWarm || !aiEndpoint()) return; aiWarm = true;
     aiEndpoints().forEach(u => { if (!/script\.google/.test(u)) fetch(u, { method: 'OPTIONS' }).catch(() => {}); });
   }
+  // language of a single message: Cyrillic → ru (or uz if Uzbek Cyrillic letters), clear English → en, any other Latin → uz
+  function msgLang(t) {
+    const w = t.toLowerCase();
+    if (/[ўқғҳ]/.test(w)) return 'uz';
+    if (/[а-яё]/.test(w)) return 'ru';
+    if (!/[a-z]/.test(w)) return LANG;
+    const en = /\b(the|you|your|what|where|when|how|why|who|do|does|is|are|was|have|has|can|could|would|i|i'm|we|my|me|menu|price|prices|open|close|book|booking|table|recommend|food|dish|dishes|hello|hi|hey|thanks|thank|please|want|need|much|cheap|expensive|delivery)\b/g;
+    const uz = /(o['ʻ‘’`]|g['ʻ‘’`]|\b(va|bor|bormi|yo'q|yoq|qanday|qanaqa|nima|nimalar|nechi|necha|qancha|kerak|salom|rahmat|menga|sizda|uchun|bilan|qayer|qayerda|ha|xop|mumkinmi|lekin|juda|yana|yanachi|yaxshi|kim|kimsan|sen|siz|biz|men|bu|shu|osh|taom|ovqat|non|stol|bron)\b|(lar|ingiz|imiz|miz|dan|ga|da|ni|chi|mi)\b)/g;
+    const e = (w.match(en) || []).length, u = (w.match(uz) || []).length;
+    return e > u ? 'en' : 'uz';
+  }
   async function callOne(url, q) {
     const gas = /script\.google/.test(url);
     const ctl = new AbortController(); const to = setTimeout(() => ctl.abort(), gas ? 30000 : 20000);
@@ -495,7 +508,7 @@
       const r = await fetch(url, { method: 'POST', signal: ctl.signal, redirect: 'follow',
         // Apps Script accepts only "simple" requests (no CORS preflight), so send JSON as plain text there
         headers: { 'Content-Type': gas ? 'text/plain;charset=utf-8' : 'application/json' },
-        body: JSON.stringify({ messages: [...history, { role: 'me', text: q }].slice(-12), tone: settings().tone, lang: LANG }) });
+        body: JSON.stringify({ messages: [...history, { role: 'me', text: q }].slice(-12), tone: settings().tone, lang: msgLang(q) }) });
       const j = await r.json().catch(() => ({}));
       if (r.status === 429 || j.error === 'busy') return { busy: Math.min(60, Math.max(5, +j.retryAfter || 20)) };
       if (!r.ok || !j.reply) return { failed: true };

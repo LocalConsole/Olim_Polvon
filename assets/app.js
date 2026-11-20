@@ -262,9 +262,10 @@
   const CHIPS = [tt('Что попробовать впервые?'), tt('Стол на 4 человека'), tt('Удиви меня'), tt('Недорого и сытно'), tt('Мой заказ'), tt('Доставка'), tt('Поострее'), tt('Забронировать стол')];
 
   /* ---- order basket (kept on this device) ---- */
+  const TABLE_ID = () => { try { return new URLSearchParams(location.search).get('table') || sessionStorage.getItem('polvon_table') || ''; } catch { return ''; } };
   const cart = {
     get: () => store.get('cart', {}),
-    set(c) { store.set('cart', c); renderCartBar(); },
+    set(c) { store.set('cart', c); renderCartBar(); window.dispatchEvent(new Event('polvon-cart')); },
     add(id, n = 1) { const c = cart.get(); c[id] = Math.max(0, (c[id] || 0) + n); if (!c[id]) delete c[id]; cart.set(c); },
     clear() { cart.set({}); },
     lines() { const m = getMenu(), c = cart.get(); return Object.entries(c).map(([id, q]) => ({ d: m.find(x => x.id === id), q })).filter(l => l.d); },
@@ -475,17 +476,197 @@
       if (!lines.length) { box.innerHTML = `<p>${esc(tt('Заказ пуст.'))}</p>`; return; }
       box.innerHTML = lines.map(l => `<div class="ai-order-row" data-id="${l.d.id}"><span>${esc(l.d.name)}</span><span class="qty"><button type="button" data-q="-1" aria-label="−">−</button><b>${l.q}</b><button type="button" data-q="1" aria-label="+">+</button></span><span class="price">${fmt(l.d.price * l.q)}</span></div>`).join('')
         + `<div class="ai-order-total"><span>${esc(tt('Итого'))}</span><b>${fmt(cart.total())}</b></div>`
-        + `<div class="ai-order-actions"><a class="btn" href="contact.html#booking" data-order-book>${esc(tt('Забронировать с этим заказом'))}</a><a class="btn btn--ghost" href="tel:+998909167774">${esc(tt('Заказать доставку'))}</a><button type="button" class="ai-order-copy" data-order-copy>${esc(tt('Скопировать заказ'))}</button><button type="button" class="mini-btn mini-btn--danger" data-order-clear>${esc(tt('Отменить заказ'))}</button></div>`;
+        + `<div class="ai-order-actions"><button type="button" class="btn" data-order-checkout="delivery">${esc(tt('Оформить доставку'))}</button><button type="button" class="btn btn--ghost" data-order-checkout="${TABLE_ID() ? 'table' : 'pickup'}">${esc(TABLE_ID() ? tt('Отправить на кухню') : tt('Заберу сам'))}</button><button type="button" class="ai-order-copy" data-order-copy>${esc(tt('Скопировать заказ'))}</button><button type="button" class="mini-btn mini-btn--danger" data-order-clear>${esc(tt('Отменить заказ'))}</button></div>`;
     };
     box.addEventListener('click', e => {
       const q = e.target.closest('[data-q]'); if (q) { cart.add(q.closest('[data-id]').dataset.id, +q.dataset.q); draw(); return; }
       if (e.target.closest('[data-order-clear]')) { cart.clear(); draw(); toast(tt('Заказ отменён')); return; }
       if (e.target.closest('[data-order-copy]')) { navigator.clipboard?.writeText(tt('Заказ') + ': ' + orderText() + '. ' + tt('Итого') + ': ' + fmt(cart.total())).then(() => toast(tt('Заказ скопирован — вставьте его в Telegram-бот'))).catch(() => {}); return; }
-      if (e.target.closest('[data-order-book]')) store.set('booking_note', tt('Заказ к приходу') + ': ' + orderText());
+      const co = e.target.closest('[data-order-checkout]'); if (co) { closeAI?.(); openCheckout(co.dataset.orderCheckout); return; }
     });
     draw(); msgs.append(box); scrollDown();
   }
   renderCartBar();
+
+  /* ---------------- shop: «+» on menu cards, order bar, checkout ---------------- */
+  const PHONE_OK = v => v.replace(/\D/g, '').length >= 9;
+  function syncMenuAdds() {
+    const m = getMenu(), c = cart.get();
+    $$('.menu-item[data-id]').forEach(li => {
+      const d = m.find(x => x.id === li.dataset.id); const ph = $('.dish-ph', li);
+      let box = $('.mi-add', li);
+      if (!d || !d.price || d.stop || !ph) { box?.remove(); return; }
+      if (!box) { box = document.createElement('div'); box.className = 'mi-add'; ph.append(box); }
+      const q = c[d.id] || 0;
+      const html = q ? `<button type="button" data-mi="-1" aria-label="${esc(tt('Убрать одну порцию'))}">−</button><b aria-live="polite">${q}</b><button type="button" data-mi="1" aria-label="${esc(tt('Добавить ещё'))}">+</button>`
+                     : `<button type="button" data-mi="1" class="mi-plus" aria-label="${esc(tt('Добавить в заказ'))}: ${esc(d.name)}">+</button>`;
+      if (box.dataset.q !== String(q)) { box.innerHTML = html; box.dataset.q = q; box.classList.toggle('is-on', !!q); }
+    });
+  }
+  document.addEventListener('click', e => {
+    const b = e.target.closest('.mi-add [data-mi]'); if (!b) return;
+    e.preventDefault(); e.stopPropagation();
+    const id = b.closest('.menu-item').dataset.id; const n = +b.dataset.mi;
+    cart.add(id, n);
+    if (n > 0 && cart.get()[id] === 1) toast(tt('Добавлено в заказ'));
+  }, true);
+
+  const orderBar = document.createElement('div');
+  orderBar.className = 'order-bar'; orderBar.hidden = true;
+  orderBar.innerHTML = `<button type="button" class="order-bar-main" data-checkout-open><span class="order-bar-ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 8h14l-1.3 11.2a2 2 0 0 1-2 1.8H8.3a2 2 0 0 1-2-1.8z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/></svg><i data-ob-n></i></span><span class="order-bar-txt"><small>${esc(tt('Ваш заказ'))}</small><b data-ob-sum></b></span><span class="order-bar-go">${esc(tt('Оформить'))}</span></button>`;
+  document.body.append(orderBar);
+  function renderOrderBar() {
+    const n = cart.count(); const show = n > 0 && !/admin\.html$/.test(location.pathname);
+    orderBar.hidden = !show; document.documentElement.classList.toggle('has-order', show);
+    if (!show) return;
+    $('[data-ob-n]', orderBar).textContent = n; $('[data-ob-sum]', orderBar).textContent = fmt(cart.total());
+    orderBar.classList.remove('bump'); void orderBar.offsetWidth; orderBar.classList.add('bump');
+  }
+  orderBar.addEventListener('click', () => openCheckout());
+
+  const co = document.createElement('dialog');
+  co.className = 'checkout'; co.setAttribute('aria-labelledby', 'co-title');
+  document.body.append(co);
+  let coMode = 'delivery', coDraft = {};
+  const coSaved = () => store.get('guest', {});
+  function coLines() {
+    const lines = cart.lines();
+    if (!lines.length) return `<p class="co-empty">${esc(tt('Заказ пуст. Добавьте блюда кнопкой «+» в меню.'))}</p><a class="btn" href="menu.html">${esc(tt('Открыть меню'))}</a>`;
+    return `<ul class="co-lines">${lines.map(l => `<li data-id="${l.d.id}"><span class="co-name">${esc(l.d.name)}</span><span class="qty"><button type="button" data-q="-1" aria-label="−">−</button><b>${l.q}</b><button type="button" data-q="1" aria-label="+">+</button></span><span class="co-price">${fmt(l.d.price * l.q)}</span></li>`).join('')}</ul>
+      <div class="co-total"><span>${esc(tt('Итого за блюда'))}</span><b>${fmt(cart.total())}</b></div>`;
+  }
+  // table number comes only from the QR code on the table: ?table=5
+  const TABLE = (() => { try { const q = new URLSearchParams(location.search); const t = (q.get('table') || q.get('stol') || '').replace(/\D/g, '').slice(0, 3); if (t) sessionStorage.setItem('polvon_table', t); return t || sessionStorage.getItem('polvon_table') || ''; } catch { return ''; } })();
+  if (TABLE) coMode = 'table';
+  const ymap = (lat, lon) => `https://yandex.uz/map-widget/v1/?ll=${lon},${lat}&z=17&pt=${lon},${lat},pm2rdm`;
+  const ylink = (lat, lon) => `https://yandex.uz/maps/?pt=${lon},${lat}&z=17&l=map`;
+  function geoBlock() {
+    const d = coDraft;
+    if (d.lat && d.ok === '1') return `<div class="co-geo is-ok"><div class="co-geo-row"><span>✓ ${esc(tt('Локация подтверждена'))}</span><button type="button" class="mini-btn" data-geo-reset>${esc(tt('Изменить'))}</button></div>
+      <label class="co-live"><input type="checkbox" name="live" value="1" ${d.live === '1' ? 'checked' : ''}><span><b>${esc(tt('Транслировать моё местоположение'))}</b><small>${esc(tt('Курьер увидит, где вы, даже если вы переместитесь. Работает, пока страница открыта и есть интернет.'))}</small></span></label></div>`;
+    if (d.lat) return `<div class="co-geo"><iframe class="co-geo-map" src="${ymap(d.lat, d.lon)}" title="${esc(tt('Ваше местоположение на карте'))}" loading="lazy"></iframe>
+      <p class="co-geo-q">${esc(tt('Мы правильно определили, где вы?'))}${d.acc > 150 ? ` <small>${esc(tt('Точность низкая — проверьте метку.'))} ±${Math.round(d.acc)} ${esc(tt('м'))}</small>` : ''}</p>
+      <div class="co-geo-row"><button type="button" class="btn" data-geo-yes>${esc(tt('Да, верно'))}</button><button type="button" class="btn btn--ghost" data-geo-again>${esc(tt('Определить ещё раз'))}</button><button type="button" class="mini-btn" data-geo-reset>${esc(tt('Нет, введу адрес'))}</button></div></div>`;
+    return `<button type="button" class="co-geo-btn" data-geo><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg><span><b>${esc(tt('Отправить мою геолокацию'))}</b><small>${esc(tt('Браузер спросит разрешение — курьер найдёт вас точно'))}</small></span></button>`;
+  }
+  function coForm() {
+    const g = coSaved();
+    const tabs = TABLE ? [['table', tt('Стол') + ' №' + TABLE], ['delivery', tt('Доставка')], ['pickup', tt('Заберу сам')]] : [['delivery', tt('Доставка')], ['pickup', tt('Заберу сам')]];
+    const seg = `<div class="co-seg" role="tablist" style="--n:${tabs.length}">${tabs.map(([k, t]) => `<button type="button" role="tab" aria-selected="${k === coMode}" data-mode="${k}">${esc(t)}</button>`).join('')}</div>`;
+    if (coMode === 'table') return seg + `<form class="co-form" novalidate>
+      <p class="co-table-badge">${esc(tt('Вы за столом'))} <b>№${esc(TABLE)}</b></p>
+      <label class="field"><span>${esc(tt('Комментарий'))} <small>${esc(tt('необязательно'))}</small></span><input name="note" placeholder="${esc(tt('Например: без лука'))}"></label>
+      <p class="co-hint">${esc(tt('Заказ сразу уйдёт на кухню, официант принесёт блюда к вашему столу. Оплата — как обычно, в конце.'))}</p>
+      <button class="btn co-submit" type="submit">${esc(tt('Отправить на кухню'))} · ${fmt(cart.total())}</button></form>`;
+    const del = coMode === 'delivery';
+    const needAddr = !(coDraft.lat && coDraft.ok === '1');
+    return seg + `<form class="co-form" novalidate>
+      <div class="co-grid">
+        <label class="field"><span>${esc(tt('Имя'))}</span><input name="name" autocomplete="name" required value="${esc(g.name || '')}"></label>
+        <label class="field"><span>${esc(tt('Телефон'))}</span><input name="phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="+998 __ ___ __ __" required value="${esc(g.phone || '')}"></label>
+      </div>
+      ${del ? `<div class="field"><span>${esc(tt('Куда привезти'))}</span>${geoBlock()}</div>
+      <label class="field"><span>${needAddr ? esc(tt('Адрес доставки')) : esc(tt('Подъезд, этаж, квартира'))}</span><input name="address" autocomplete="street-address" placeholder="${esc(needAddr ? tt('Район, улица, дом, квартира, ориентир') : tt('Например: 2 подъезд, 5 этаж, кв. 18'))}" ${needAddr ? 'required' : ''} value="${esc(g.address || '')}"></label>` : ''}
+      <fieldset class="co-chips"><legend>${esc(del ? tt('Когда привезти') : tt('Когда заберёте'))}</legend>
+        <label><input type="radio" name="when" value="asap" checked><span>${esc(tt('Как можно скорее'))}</span></label>
+        <label><input type="radio" name="when" value="time"><span>${esc(tt('Ко времени'))}</span></label>
+        <input type="time" name="time" class="co-time" step="900" hidden>
+      </fieldset>
+      ${del ? `<fieldset class="co-chips"><legend>${esc(tt('Оплата'))}</legend>
+        <label><input type="radio" name="pay" value="cash" checked><span>${esc(tt('Наличными'))}</span></label>
+        <label><input type="radio" name="pay" value="transfer"><span>${esc(tt('Переводом'))}</span></label>
+      </fieldset>` : ''}
+      <label class="field"><span>${esc(tt('Комментарий'))} <small>${esc(tt('необязательно'))}</small></span><input name="note" placeholder="${esc(del ? tt('Например: позвонить у подъезда, без лука') : tt('Например: без лука'))}"></label>
+      <p class="co-hint">${esc(del ? tt('Стоимость и время доставки администратор назовёт, когда перезвонит.') : tt('Адрес: Большая кольцевая (Эркин). Администратор перезвонит и скажет, когда будет готово.'))}</p>
+      <button class="btn co-submit" type="submit">${esc(del ? tt('Заказать доставку') : tt('Заказать навынос'))} · ${fmt(cart.total())}</button>
+    </form>`;
+  }
+  function locate(again) {
+    if (!navigator.geolocation) { toast(tt('Браузер не умеет определять местоположение — впишите адрес')); return; }
+    const btn = co.querySelector('[data-geo],[data-geo-again]'); if (btn) { btn.disabled = true; btn.classList.add('is-busy'); }
+    navigator.geolocation.getCurrentPosition(p => {
+      Object.assign(coDraft, { lat: p.coords.latitude.toFixed(6), lon: p.coords.longitude.toFixed(6), acc: p.coords.accuracy, ok: '' });
+      drawCheckout(); co.querySelector('.co-geo')?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }, err => {
+      if (btn) { btn.disabled = false; btn.classList.remove('is-busy'); }
+      toast(err.code === 1 ? tt('Доступ к геолокации запрещён. Разрешите его в настройках браузера или впишите адрес.') : tt('Не удалось определить местоположение. Включите GPS или впишите адрес.'));
+    }, { enableHighAccuracy: true, timeout: 15000, maximumAge: again ? 0 : 30000 });
+  }
+  // live location while the order is on its way
+  let liveWatch = null, wakeLock = null;
+  async function startLive(orderId) {
+    if (!navigator.geolocation) return;
+    try { wakeLock = await navigator.wakeLock?.request('screen'); } catch {}
+    liveWatch = navigator.geolocation.watchPosition(p => {
+      const list = store.get('orders', []); const o = list.find(x => x.id === orderId); if (!o) return;
+      o.lat = p.coords.latitude.toFixed(6); o.lon = p.coords.longitude.toFixed(6); o.liveAt = Date.now(); store.set('orders', list);
+      const st = co.querySelector('[data-live-status]'); if (st) st.textContent = tt('Трансляция идёт') + ' · ' + new Date().toLocaleTimeString(LOCALE, { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    }, () => {}, { enableHighAccuracy: true, maximumAge: 5000 });
+  }
+  function stopLive() { if (liveWatch != null) navigator.geolocation.clearWatch(liveWatch); liveWatch = null; try { wakeLock?.release(); } catch {} wakeLock = null; }
+  document.addEventListener('visibilitychange', async () => { if (liveWatch != null && document.visibilityState === 'visible') { try { wakeLock = await navigator.wakeLock?.request('screen'); } catch {} } });
+  function drawCheckout() {
+    const has = cart.count() > 0;
+    co.innerHTML = `<div class="co-card"><header class="co-head"><h2 id="co-title">${esc(tt('Ваш заказ'))}</h2><button type="button" class="co-x" data-co-close aria-label="${esc(tt('Закрыть'))}"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button></header>
+      <div class="co-body">${coLines()}${has ? coForm() : ''}</div></div>`;
+    restore(coDraft);
+  }
+  function openCheckout(mode) {
+    if (mode) coMode = mode === 'table' && !TABLE ? 'delivery' : mode;
+    drawCheckout();
+    if (!co.open) { co.showModal(); document.documentElement.classList.add('co-open'); }
+  }
+  window.POLVON_CHECKOUT = openCheckout;
+  const closeCheckout = () => { co.classList.add('is-closing'); setTimeout(() => { co.close(); co.classList.remove('is-closing'); }, 180); };
+  co.addEventListener('close', () => document.documentElement.classList.remove('co-open'));
+  co.addEventListener('click', e => {
+    if (e.target === co || e.target.closest('[data-co-close]')) { closeCheckout(); return; }
+    const q = e.target.closest('[data-q]');
+    if (q) { cart.add(q.closest('[data-id]').dataset.id, +q.dataset.q); drawCheckout(); return; }
+    const m = e.target.closest('[data-mode]');
+    if (m) { coMode = m.dataset.mode; drawCheckout(); return; }
+    if (e.target.closest('[data-geo]')) { locate(false); return; }
+    if (e.target.closest('[data-geo-again]')) { locate(true); return; }
+    if (e.target.closest('[data-geo-yes]')) { coDraft.ok = '1'; drawCheckout(); return; }
+    if (e.target.closest('[data-geo-reset]')) { ['lat', 'lon', 'acc', 'ok', 'live'].forEach(k => delete coDraft[k]); drawCheckout(); return; }
+    if (e.target.closest('[data-live-stop]')) { stopLive(); const st = co.querySelector('[data-live-status]'); if (st) st.textContent = tt('Трансляция остановлена'); e.target.closest('[data-live-stop]').remove(); return; }
+  });
+  function restore(v) {
+    const f = co.querySelector('.co-form'); if (!f) return;
+    ['name', 'phone', 'address', 'note', 'time'].forEach(k => { if (f.elements[k] && v[k]) f.elements[k].value = v[k]; });
+    ['when', 'pay'].forEach(k => { const r = v[k] && f.querySelector(`input[name="${k}"][value="${v[k]}"]`); if (r) r.checked = true; });
+    if (v.when === 'time' && f.querySelector('.co-time')) f.querySelector('.co-time').hidden = false;
+  }
+  co.addEventListener('input', e => { const f = e.target.form; if (f) Object.assign(coDraft, Object.fromEntries(new FormData(f))); });
+  co.addEventListener('change', e => { const f = e.target.form; if (f) Object.assign(coDraft, Object.fromEntries(new FormData(f))); if (e.target.name === 'live') coDraft.live = e.target.checked ? '1' : ''; if (e.target.name === 'when') { const t = co.querySelector('.co-time'); t.hidden = e.target.value !== 'time'; if (!t.hidden) { if (!t.value) { const d = new Date(Date.now() + 75 * 6e4); t.value = `${String(d.getHours()).padStart(2, '0')}:${String(Math.ceil(d.getMinutes() / 15) * 15 % 60).padStart(2, '0')}`; } t.focus(); } } });
+  co.addEventListener('submit', e => {
+    e.preventDefault(); const f = e.target; let bad = null;
+    ['name', 'phone', 'address'].forEach(k => { const i = f.elements[k]; if (!i) return; const ok = k === 'phone' ? PHONE_OK(i.value) : (!i.required || i.value.trim().length > 1); i.closest('.field').classList.toggle('is-invalid', !ok); if (!ok && !bad) bad = i; });
+    if (bad) { bad.focus(); toast(tt('Проверьте выделенные поля')); return; }
+    const v = { ...coDraft, ...Object.fromEntries(new FormData(f)) };
+    const geo = coMode === 'delivery' && v.lat && v.ok === '1';
+    const o = { id: Date.now(), type: coMode, table: coMode === 'table' ? TABLE : '', name: (v.name || '').trim(), phone: (v.phone || '').trim(), address: (v.address || '').trim(), lat: geo ? v.lat : '', lon: geo ? v.lon : '', live: geo && v.live === '1', when: coMode === 'table' ? tt('сейчас') : (v.when === 'time' && v.time ? v.time : tt('как можно скорее')), pay: coMode === 'delivery' ? v.pay || 'cash' : '', note: (v.note || '').trim(), items: orderText(), total: cart.total(), status: 'new' };
+    const list = store.get('orders', []); list.unshift(o); store.set('orders', list);
+    if (coMode !== 'table') store.set('guest', { name: o.name, phone: o.phone, address: o.address || coSaved().address || '' });
+    const kind = { delivery: tt('Доставка'), pickup: tt('Навынос'), table: tt('Стол') + ' №' + TABLE }[coMode];
+    const text = `${kind}: ${o.items}. ${tt('Итого')}: ${fmt(o.total)}.` + (coMode === 'table' ? (o.note ? ' ' + o.note : '') : ` ${o.name}, ${o.phone}${o.address ? ', ' + o.address : ''}${geo ? ', ' + ylink(o.lat, o.lon) : ''}. ${tt('Когда')}: ${o.when}${o.note ? '. ' + o.note : ''}`);
+    cart.clear(); coDraft = {};
+    const X = `<button type="button" class="co-x" data-co-close aria-label="${esc(tt('Закрыть'))}"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button>`;
+    const check = `<div class="co-check" aria-hidden="true"><svg viewBox="0 0 52 52"><circle cx="26" cy="26" r="24" fill="none" stroke="currentColor" stroke-width="2.5"/><path d="M15 27l7 7 15-16" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></div>`;
+    co.innerHTML = coMode === 'table'
+      ? `<div class="co-card co-done">${X}${check}<h2 id="co-title" tabindex="-1">${esc(tt('Заказ на кухне!'))}</h2><p>${esc(tt('Официант принесёт блюда к вашему столу. Если захотите что-то ещё — добавьте в меню и отправьте снова.'))}</p><p class="co-summary">${esc(text)}</p><div class="co-done-actions"><a class="btn" href="menu.html">${esc(tt('Вернуться в меню'))}</a></div></div>`
+      : `<div class="co-card co-done">${X}${check}<h2 id="co-title" tabindex="-1">${esc(tt('Заказ принят!'))}</h2>
+      <p>${esc(tt('Администратор перезвонит в течение нескольких минут, подтвердит заказ и назовёт время.'))}</p>
+      ${o.live ? `<div class="co-live-box"><span class="co-live-dot" aria-hidden="true"></span><div><b data-live-status>${esc(tt('Включаем трансляцию…'))}</b><small>${esc(tt('Не закрывайте эту страницу и не выключайте интернет, пока курьер в пути.'))}</small></div><button type="button" class="mini-btn" data-live-stop>${esc(tt('Остановить'))}</button></div>` : ''}
+      <p class="co-summary">${esc(text)}</p>
+      <div class="co-done-actions"><a class="btn" href="https://t.me/Olimpolvon_bot" target="_blank" rel="noopener" data-co-tg>${esc(tt('Продублировать в Telegram'))}</a><a class="btn btn--ghost" href="tel:+998909167774">${esc(tt('Позвонить'))}</a></div></div>`;
+    co.querySelector('[data-co-tg]')?.addEventListener('click', () => { navigator.clipboard?.writeText(text).then(() => toast(tt('Заказ скопирован — вставьте его в Telegram-бот'))).catch(() => {}); });
+    if (o.live) startLive(o.id);
+    co.querySelector('h2').focus();
+  });
+  window.addEventListener('polvon-cart', () => { syncMenuAdds(); renderOrderBar(); });
+  window.addEventListener('storage', e => { if (e.key === 'polvon_cart') { renderCartBar(); syncMenuAdds(); renderOrderBar(); } });
+  syncMenuAdds(); renderOrderBar();
   // booking form picks up the order chosen in the assistant
   const note = $('#b-note'); const pre = store.get('booking_note', '');
   if (note && pre && !note.value) { note.value = pre; store.set('booking_note', ''); }
@@ -562,6 +743,21 @@
     const e = (w.match(en) || []).length, u = (w.match(uz) || []).length;
     return e > u ? 'en' : 'uz';
   }
+  // admin promotions live in Google; the site loads them once per visit and passes them along
+  let sharedNotes = null;
+  const gasUrl = () => aiEndpoints().find(u => /script\.google/.test(u));
+  async function loadNotes() {
+    if (sharedNotes !== null) return sharedNotes;
+    try { const c = JSON.parse(sessionStorage.getItem('polvon_notes') || 'null'); if (c && Date.now() - c.t < 10 * 60e3) return (sharedNotes = c.n); } catch {}
+    const u = gasUrl(); if (!u) return (sharedNotes = '');
+    try {
+      const r = await fetch(u, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'notes_get' }) });
+      const j = await r.json(); sharedNotes = j.notes || '';
+      try { sessionStorage.setItem('polvon_notes', JSON.stringify({ t: Date.now(), n: sharedNotes })); } catch {}
+    } catch { sharedNotes = ''; }
+    return sharedNotes;
+  }
+  window.POLVON_NOTES = { load: loadNotes, gasUrl, reset: () => { sharedNotes = null; try { sessionStorage.removeItem('polvon_notes'); } catch {} } };
   async function callOne(url, q, outer) {
     const gas = /script\.google/.test(url);
     const ctl = new AbortController(); const to = setTimeout(() => ctl.abort(), gas ? 30000 : 20000);
@@ -571,7 +767,7 @@
       const r = await fetch(url, { method: 'POST', signal: ctl.signal, redirect: 'follow',
         // Apps Script accepts only "simple" requests (no CORS preflight), so send JSON as plain text there
         headers: { 'Content-Type': gas ? 'text/plain;charset=utf-8' : 'application/json' },
-        body: JSON.stringify({ messages: [...history, { role: 'me', text: q }].slice(-12), tone: settings().tone, lang: msgLang(q), memory: memory.get(), admin: isAdmin() }) });
+        body: JSON.stringify({ messages: [...history, { role: 'me', text: q }].slice(-12), tone: settings().tone, lang: msgLang(q), memory: memory.get(), admin: isAdmin(), notes: gas ? undefined : (sharedNotes || '') }) });
       const j = await r.json().catch(() => ({}));
       if (r.status === 429 || j.error === 'busy') return { busy: Math.min(60, Math.max(5, +j.retryAfter || 20)) };
       if (!r.ok || !j.reply) return { failed: true };
@@ -661,7 +857,7 @@
     // on the home page the chat may already sit inside the "Не знаете, что выбрать?" block
     if (panel.classList.contains('ai-panel--inline')) { panel.scrollIntoView({ block: 'center', behavior: reduce ? 'auto' : 'smooth' }); setTimeout(() => aiInput?.focus({ preventScroll: true }), 300); return; }
     lastFocus = document.activeElement;
-    hideHello?.(); warmAI(); document.body.classList.add('ai-open'); root.classList.add('ai-open');
+    hideHello?.(); warmAI(); loadNotes(); document.body.classList.add('ai-open'); root.classList.add('ai-open');
     $$('[data-ai-open]').forEach(b => b.setAttribute('aria-expanded', 'true'));
     setTimeout(() => aiInput?.focus({ preventScroll: true }), 120);
     greet();
@@ -715,7 +911,7 @@
     const mountInline = () => {
       if (panel.classList.contains('ai-panel--inline') || root.classList.contains('ai-open')) return;
       slot.after(panel); panel.classList.add('ai-panel--inline'); root.classList.add('ai-inline');
-      panel.setAttribute('role', 'region'); warmAI(); greet();
+      panel.setAttribute('role', 'region'); warmAI(); loadNotes(); greet();
     };
     const unmountInline = () => {
       if (!panel.classList.contains('ai-panel--inline')) return;
@@ -1049,6 +1245,24 @@
         <td><span class="status-pill ${b.status === 'ok' ? 'status-pill--ok' : ''}">${b.status === 'ok' ? tt('Подтверждена') : tt('Новая')}</span></td>
         <td><div class="row-actions">${b.status === 'ok' ? '' : tt('<button class="mini-btn" data-ok>Подтвердить</button>')}<button class="mini-btn" data-del>Удалить</button></div></td></tr>`).join('')}</tbody></table>`;
     }
+    function renderOrders() {
+      const host = $('[data-orders]'); if (!host) return; const list = store.get('orders', []);
+      const k = $('[data-kpi=orders]'); if (k) k.textContent = list.length;
+      if (!list.length) { host.innerHTML = `<div class="empty-state">${esc(tt('Заказов пока нет. Добавьте блюда кнопкой «+» в меню и оформите доставку.'))}</div>`; return; }
+      const TYPE = { delivery: tt('Доставка'), pickup: tt('Навынос'), table: tt('Стол') }, PAY = { cash: tt('Наличными'), transfer: tt('Переводом') };
+      host.innerHTML = `<table class="data"><thead><tr><th>${esc(tt('Тип'))}</th><th>${esc(tt('Гость'))}</th><th>${esc(tt('Заказ'))}</th><th>${esc(tt('Сумма'))}</th><th>${esc(tt('Адрес и время'))}</th><th>${esc(tt('Статус'))}</th><th></th></tr></thead><tbody>${list.map(o => `
+        <tr data-id="${o.id}"><td><span class="type-pill type-pill--${o.type}">${esc(TYPE[o.type] || o.type)}${o.table ? ' №' + esc(o.table) : ''}</span></td><td>${o.phone ? `<b>${esc(o.name)}</b><br><a href="tel:${esc(o.phone)}">${esc(o.phone)}</a>` : '—'}</td><td>${esc(o.items)}${o.note ? `<br><small class="muted">${esc(o.note)}</small>` : ''}</td><td class="num" style="white-space:nowrap">${fmt(o.total)}${o.pay ? `<br><small class="muted">${esc(PAY[o.pay] || '')}</small>` : ''}</td><td>${esc(o.address || (o.lat ? '' : '—'))}${o.lat ? `${o.address ? '<br>' : ''}<a class="geo-link" href="https://yandex.uz/maps/?pt=${o.lon},${o.lat}&z=17&l=map" target="_blank" rel="noopener">📍 ${esc(tt('На карте'))}</a>${o.live ? ` <span class="live-pill">${esc(tt('онлайн'))}</span>` : ''}` : ''}<br><small class="muted">${esc(o.when)}</small></td>
+        <td><span class="status-pill ${o.status === 'ok' ? 'status-pill--ok' : ''}">${o.status === 'ok' ? esc(tt('Принят')) : esc(tt('Новый'))}</span></td>
+        <td><div class="row-actions">${o.status === 'ok' ? '' : `<button class="mini-btn" data-ook>${esc(tt('Принять'))}</button>`}<button class="mini-btn" data-odel>${esc(tt('Удалить'))}</button></div></td></tr>`).join('')}</tbody></table>`;
+    }
+    $('[data-orders]')?.addEventListener('click', e => {
+      const tr = e.target.closest('tr'); if (!tr) return; const id = Number(tr.dataset.id);
+      let list = store.get('orders', []);
+      if (e.target.closest('[data-ook]')) { list = list.map(o => o.id === id ? { ...o, status: 'ok' } : o); toast(tt('Заказ принят')); }
+      else if (e.target.closest('[data-odel]')) { list = list.filter(o => o.id !== id); toast(tt('Заказ удалён')); }
+      else return;
+      store.set('orders', list); renderOrders();
+    });
     $('[data-bookings]')?.addEventListener('click', e => {
       const tr = e.target.closest('tr'); if (!tr) return; const id = Number(tr.dataset.id);
       let list = store.get('bookings', []);
@@ -1074,6 +1288,26 @@
       renderKpis(); clearTimeout(saveT); saveT = setTimeout(() => toast(tt('Сохранено')), 150);
     });
     $('[data-menu-reset]')?.addEventListener('click', () => { store.del('menu'); store.del('custom'); renderMenuEditor(); renderKpis(); toast(tt('Меню сброшено к исходному')); });
+    const notesForm = $('[data-ai-notes]');
+    if (notesForm) {
+      const st = $('[data-notes-status]'), meta = $('[data-notes-meta]');
+      const N = () => window.POLVON_NOTES;
+      const gas = () => N()?.gasUrl();
+      const call = body => fetch(gas(), { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(body) }).then(r => r.json());
+      if (gas()) call({ action: 'notes_get' }).then(j => { notesForm.notes.value = j.notes || ''; if (j.updated) meta.textContent = tt('Обновлено: ') + new Date(j.updated).toLocaleString(LOCALE); })
+        .catch(() => meta.textContent = tt('Не удалось загрузить из Google.'));
+      else meta.textContent = tt('Адрес Google-сервера не подключён.');
+      const save = notes => {
+        if (!gas()) return;
+        st.textContent = tt('Сохраняем…');
+        call({ action: 'notes_set', password: notesForm.password.value, notes }).then(j => {
+          if (j.ok) { notesForm.notes.value = j.notes; st.textContent = tt('Сохранено. Помощник уже рассказывает об этом всем гостям.'); N()?.reset(); toast(tt('Сохранено для всех')); meta.textContent = tt('Обновлено: ') + new Date().toLocaleString(LOCALE); }
+          else st.textContent = j.error === 'wrong password' ? tt('Неверный пароль.') : tt('Ошибка: ') + (j.error || '');
+        }).catch(() => st.textContent = tt('Не удалось связаться с Google. Обновлён ли код в Google Apps Script?'));
+      };
+      notesForm.addEventListener('submit', e => { e.preventDefault(); save(notesForm.notes.value.trim()); });
+      $('[data-notes-clear]')?.addEventListener('click', () => { if (!notesForm.password.value) { notesForm.password.focus(); st.textContent = tt('Введите пароль.'); return; } save(''); });
+    }
     const aiSet = $('[data-ai-settings]');
     aiSet?.addEventListener('submit', e => { e.preventDefault(); store.set('ai', { greeting: aiSet.greeting.value, tone: aiSet.tone.value, endpoint: aiSet.endpoint.value.trim() }); toast(tt('Настройки помощника сохранены'));
       const st = $('[data-ai-status]'); const u = aiSet.endpoint.value.trim();
@@ -1085,7 +1319,7 @@
             .catch(() => (gas ? 'Google: ' : 'Cloudflare: ') + tt('не открывается из этой сети'));
         })).then(lines => st.textContent = lines.join('  |  ')); } });
     function renderAll() {
-      renderKpis(); renderBookings(); renderMenuEditor();
+      renderKpis(); renderBookings(); renderOrders(); renderMenuEditor();
       if (aiSet) { const s = settings(); aiSet.greeting.value = s.greeting; aiSet.tone.value = s.tone; aiSet.endpoint.value = store.get('ai', {}).endpoint || ''; }
     }
     show();

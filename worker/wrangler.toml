@@ -1,0 +1,6 @@
+name = "olim-ai"
+main = "worker.js"
+compatibility_date = "2026-11-01"
+
+[vars]
+ORIGINS = "https://localconsole.github.io"

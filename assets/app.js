@@ -474,7 +474,19 @@
   const aiEndpoint = () => aiEndpoints()[0] || '';
   let goodEp = (() => { try { return sessionStorage.getItem('polvon_ai_ep') || ''; } catch { return ''; } })();
   // conversation survives page changes within the visit
-  const history = (() => { try { return JSON.parse(sessionStorage.getItem('polvon_chat') || '[]'); } catch { return []; } })();
+  // chat and guest preferences live only on this device (localStorage), chat for 7 days
+  const WEEK = 7 * 864e5;
+  const history = (() => { try { const c = JSON.parse(localStorage.getItem('polvon_chat') || 'null'); return c && Date.now() - c.t < WEEK ? c.m : []; } catch { return []; } })();
+  const memory = {
+    get: () => { try { return JSON.parse(localStorage.getItem('polvon_mem') || '[]'); } catch { return []; } },
+    set: a => { try { localStorage.setItem('polvon_mem', JSON.stringify(a.slice(-12))); } catch {} },
+    apply(add, del) {
+      let m = memory.get(); const n = x => x.toLowerCase().trim();
+      if (del?.length) m = m.filter(x => !del.some(d => n(d) === n(x)));
+      const fresh = (add || []).filter(x => !m.some(y => n(y) === n(x)));
+      memory.set([...m, ...fresh]); return fresh;
+    },
+  };
   if (aiEndpoint()) { const f = $('.ai-foot'); if (f) f.textContent = tt('Отвечает ИИ. Может ошибаться — уточняйте у администратора.'); }
   function matchDishes(names) {
     const m = getMenu().filter(d => !d.stop); const n = s => norm(s).replace(/[«»"]/g, '');
@@ -508,7 +520,7 @@
       const r = await fetch(url, { method: 'POST', signal: ctl.signal, redirect: 'follow',
         // Apps Script accepts only "simple" requests (no CORS preflight), so send JSON as plain text there
         headers: { 'Content-Type': gas ? 'text/plain;charset=utf-8' : 'application/json' },
-        body: JSON.stringify({ messages: [...history, { role: 'me', text: q }].slice(-12), tone: settings().tone, lang: msgLang(q) }) });
+        body: JSON.stringify({ messages: [...history, { role: 'me', text: q }].slice(-12), tone: settings().tone, lang: msgLang(q), memory: memory.get() }) });
       const j = await r.json().catch(() => ({}));
       if (r.status === 429 || j.error === 'busy') return { busy: Math.min(60, Math.max(5, +j.retryAfter || 20)) };
       if (!r.ok || !j.reply) return { failed: true };
@@ -547,6 +559,8 @@
     if (j?.unreachable) { if (!unreachableShown) { unreachableShown = true; sysNote(tt('Не получается связаться с ИИ — проверьте интернет. Пока отвечаю в простом режиме.')); } return null; }
     if (!j) return null;
     if (j.switched && !switchedShown) { switchedShown = true; sysNote(tt('Основной ИИ на лимите — ответил запасной. Разговор сохранён.')); }
+    const learned = memory.apply(j.remember, j.forget);
+    if (learned.length) setTimeout(() => sysNote(tt('Запомнил на этом устройстве: ') + learned.join(', ') + '. ' + tt('Стереть — кнопка «Забыть меня».')), 400);
     return { text: j.reply, cards: matchDishes(j.dishes) };
   }
   async function ask(q) {
@@ -562,7 +576,7 @@
       if (ai) { r = ai; r.fast = true; }
     }
     history.push({ role: 'me', text: q }, { role: 'bot', text: r.text }); if (history.length > 20) history.splice(0, history.length - 20);
-    try { sessionStorage.setItem('polvon_chat', JSON.stringify(history)); } catch {}
+    try { localStorage.setItem('polvon_chat', JSON.stringify({ t: Date.now(), m: history })); } catch {}
     await botReply(r.text, r);
   }
   function openAI() {
@@ -604,6 +618,15 @@
   }
   $('[data-hello-close]')?.addEventListener('click', hideHello);
   $('[data-ai-close]')?.addEventListener('click', closeAI);
+  const forgetBtn = $('[data-ai-forget]');
+  forgetBtn?.addEventListener('click', () => {
+    if (!forgetBtn.dataset.sure) { forgetBtn.dataset.sure = '1'; forgetBtn.textContent = tt('Точно стереть?'); setTimeout(() => { delete forgetBtn.dataset.sure; forgetBtn.textContent = tt('Забыть меня'); }, 3500); return; }
+    delete forgetBtn.dataset.sure; forgetBtn.textContent = tt('Забыть меня');
+    try { ['polvon_chat', 'polvon_mem', 'polvon_cart'].forEach(k => localStorage.removeItem(k)); sessionStorage.removeItem('polvon_ai_ep'); } catch {}
+    history.length = 0; cart.clear?.(); msgs.innerHTML = '';
+    sysNote(tt('Готово: переписка и предпочтения стёрты с этого устройства.'));
+    botReply(settings().greeting);
+  });
   // tap outside the panel closes it
   document.addEventListener('pointerdown', e => {
     if (!root.classList.contains('ai-open') || e.target.closest('#ai-panel, [data-ai-open], .ai-hello, .toast-host')) return;

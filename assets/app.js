@@ -71,9 +71,9 @@
       const hex = Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
       return hex === ADMIN_SHA256;
     }
-    return p === 'polvon2026';
+    return false; // no Web Crypto: refuse instead of comparing in plain text
   }
-  const ADMIN_SHA256 = '6dfc28d3369ed5e3feede7a0e80f4eccebf3a74b3cbf81c721a44d57cdf23884';
+  const ADMIN_SHA256 = 'b5dd70130a443b64711dc3a210b238d7b272b49324fd8da5e798887f8543943e';
   const isAdmin = () => root.classList.contains('is-admin');
   function setAdmin(on) {
     try { on ? sessionStorage.setItem('polvon_admin', '1') : sessionStorage.removeItem('polvon_admin'); } catch {}

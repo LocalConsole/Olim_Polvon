@@ -51,7 +51,7 @@ export default {
                     en: "English (translate dish names to English, prices like «48,000 UZS»; no Cyrillic)" };
     const SYS = SYSTEM.replace("{TONE}", TONES[body.tone] || TONES.warm).replace("{LANG}", LANGS[lang]);
     // repeat the language right next to the question: weaker models follow this more reliably
-    const NOTE = { ru: "[Ответь только по-русски, кириллицей.]", uz: "[Faqat o'zbek tilida, faqat LOTIN harflarida javob ber. Kirill harflari taqiqlangan.]", en: "[Reply in English only.]" }[lang];
+    const NOTE = { ru: "[Ответь только по-русски, кириллицей.]", uz: "[Faqat o'zbek tilida, faqat LOTIN harflarida javob ber. Kirill harflari va ruscha so'z/iboralar taqiqlangan. Taom nomlarini menyudagi qavs ichidagi o'zbekcha nomdan ol (masalan: Beshbarmoq, 2 qism).]", en: "[Reply in English only.]" }[lang];
     msgs[msgs.length - 1] = { role: "user", parts: [{ text: last + "\n\n" + NOTE }] };
     const payload = JSON.stringify({
       systemInstruction: { parts: [{ text: SYS }] },

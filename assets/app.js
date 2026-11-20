@@ -400,12 +400,19 @@
     msgs.append(m); scrollDown(); return m;
   }
   const sleep = ms => new Promise(r => setTimeout(r, ms));
+  // phone numbers become one tappable, unbreakable link: +998 95 343 43 43
+  const PHONE = /(\+?998[\s\u00a0\u202f()-]*\d{2}[\s\u00a0\u202f)-]*\d{3}[\s\u00a0\u202f-]*\d{2}[\s\u00a0\u202f-]*\d{2})/g;
+  const glue = t => t.replace(PHONE, m => m.replace(/[\s\u202f]/g, '\u00a0'));
+  function linkify(el, text) {
+    el.innerHTML = esc(text).replace(PHONE, m => `<a class="tel" href="tel:+${m.replace(/\D/g, '')}">${m.replace(/[\s\u202f]/g, '&nbsp;')}</a>`);
+  }
   async function stream(el, text) {
-    if (reduce) { el.textContent = text; return; }
+    if (reduce) { linkify(el, text); return; }
     el.classList.add('caret'); el.textContent = '';
-    const step = Math.max(1, Math.round(text.length / 90));
-    for (let i = 0; i < text.length; i += step) { el.textContent = text.slice(0, i + step); scrollDown(); await sleep(16); }
-    el.classList.remove('caret');
+    const shown = glue(text);
+    const step = Math.max(1, Math.round(shown.length / 90));
+    for (let i = 0; i < shown.length; i += step) { el.textContent = shown.slice(0, i + step); scrollDown(); await sleep(16); }
+    el.classList.remove('caret'); linkify(el, text);
   }
   function renderCards(list, host) {
     if (!list?.length) return;

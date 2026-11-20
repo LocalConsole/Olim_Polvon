@@ -1119,3 +1119,4 @@ body::before {
 .ai-panel--inline .ai-close { display: none; }
 .ai-panel--inline .ai-forget { margin-left: auto; }
 @media (max-width: 700px) { .ai-panel.ai-panel--inline { height: 520px; border-radius: 22px; } }
+.msg a.tel { white-space: nowrap; color: inherit; font-weight: 600; text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--gold); }

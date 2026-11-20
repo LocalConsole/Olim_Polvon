@@ -214,6 +214,29 @@
     }
   }
 
+  /* ---------------- category list: a photo follows the cursor ---------------- */
+  const cats = $('[data-cats]'), prev = $('[data-cat-preview]');
+  if (cats && prev && finePointer && !reduce) {
+    const imgs = {};
+    let tx = 0, ty = 0, x = 0, y = 0, raf = 0, on = false;
+    const loop = () => {
+      x += (tx - x) * 0.16; y += (ty - y) * 0.16;
+      prev.style.left = x + 'px'; prev.style.top = y + 'px';
+      raf = (Math.abs(tx - x) > .3 || Math.abs(ty - y) > .3) ? requestAnimationFrame(loop) : 0;
+    };
+    $$('a[data-preview]', cats).forEach(a => {
+      a.addEventListener('pointerenter', e => {
+        const src = a.dataset.preview;
+        if (!imgs[src]) { const im = new Image(); im.src = src; im.alt = ''; prev.append(im); imgs[src] = im; }
+        Object.values(imgs).forEach(im => im.classList.toggle('is-on', im === imgs[src]));
+        if (!on) { x = tx = e.clientX + 170; y = ty = e.clientY; prev.style.left = x + 'px'; prev.style.top = y + 'px'; }
+        on = true; prev.classList.add('is-on');
+      });
+    });
+    cats.addEventListener('pointermove', e => { tx = e.clientX + 170; ty = e.clientY; if (!raf) raf = requestAnimationFrame(loop); });
+    cats.addEventListener('pointerleave', () => { on = false; prev.classList.remove('is-on'); });
+  }
+
   /* ---------------- word highlight moment ---------------- */
   const words = $('[data-words]');
   if (words) {
@@ -246,16 +269,18 @@
     const has = (...w) => w.some(x => t.includes(x));
     if (has('брон', 'стол', 'зарезерв', 'место', 'band', 'stol', 'book', 'reserv', 'table')) return { text: tt('Конечно! Откройте форму брони: дата, время и число гостей — займёт минуту. Администратор перезвонит и подтвердит.'), link: [tt('Перейти к брони'), 'contact.html#booking'] };
     if (has('достав', 'привез', 'на дом', 'yetkaz', 'с собой', 'навынос', 'deliver', 'takeaway', 'olib ket')) return { text: tt('Доставка есть: звоните +998 90 916 77 74 или +998 97 766 99 88, либо закажите в Telegram-боте @Olimpolvon_bot. Можно и забрать с собой.'), link: [tt('Открыть Telegram-бот'), 'https://t.me/Olimpolvon_bot'] };
-    if (has('остр', 'перц', 'пикант', 'spic', 'hot', 'achchiq')) return { text: tt('Если любите поострее — қовурма лағмон с перцем и чесноком и уйгурский лагман.'), cards: pick(['Қовурма лағмон', 'Уйгурский лагман']) };
-    if (has('компан', 'много', 'банкет', 'день рожд', 'праздн', 'семь', 'group', 'party', 'family', 'davra', 'oila', 'bayram')) return { text: tt('На компанию хорошо берут норин с казы — порция на килограмм, бешбармак и ассорти кабобов.'), cards: pick(['Узбекский плов', 'Тандир гўшт', 'Норин с казы']) };
-    if (has('час', 'работа', 'открыт', 'закры', 'когда', 'hour', 'open', 'close', 'soat', 'vaqt', 'ochiq')) return { text: tt('Мы работаем каждый день с 06:00 до 23:00. С утра — илик шўрва, нўхат шўрак и норин.') };
+    if (has('остр', 'перц', 'пикант', 'spic', 'hot', 'achchiq')) return { text: tt('Если любите поострее — ковурма лагман, гушт сай и острые колбаски.'), cards: pick(['Ковурма лагман', 'Гушт сай', 'Колбаски острые']) };
+    if (has('компан', 'много', 'банкет', 'день рожд', 'праздн', 'семь', 'group', 'party', 'family', 'davra', 'oila', 'bayram')) return { text: tt('На компанию берут бешбармак на большом блюде, ассорти шашлыков и норин на килограмм.'), cards: pick(['Бешбармак, среднее блюдо', 'Ассорти шашлыков', 'Норин']) };
+    if (has('час', 'работа', 'открыт', 'закры', 'когда', 'hour', 'open', 'close', 'soat', 'vaqt', 'ochiq')) return { text: tt('Мы работаем каждый день. С утра — илик шурпа, нохат шурак и халим, вечером — шашлыки на углях.') };
     if (has('адрес', 'где', 'добрат', 'парков', 'manzil', 'address', 'where', 'qayer', 'located')) return { text: tt('Мы на Большой кольцевой (Катта халқа йўли), «Эркин», Зангиатинский район. Маршрут удобно построить в Яндекс Картах.'), link: [tt('Открыть карту'), 'https://yandex.uz/maps/org/89114477009/'] };
-    if (has('мяс', 'казы', 'конин', 'рулет', 'meat', "go'sht", 'qazi', 'kazy')) return { text: tt('При ресторане есть мясной центр: казы и рулеты из конины, говяжий и бараний рулет, копчёная курица. Цены уточняйте по телефону +998 95 343 43 43.') };
-    if (has('шашлык', 'кабоб', 'кебаб', 'мангал', 'kebab', 'kabob', 'shashlik', 'grill')) return { text: tt('Кабобы жарим на углях из халяль-мяса. Попробуйте кусковой шашлык из баранины и наполеон кабоб.'), cards: pick(['Шашлык кусковой из баранины', 'Наполеон кабоб', 'Шашлык молотый']) };
-    if (has('лагман', 'лағмон', 'lagmon', "lag'mon", 'lagman', 'noodle')) return { text: tt('Қовурма лағмон — то, что гости называют нашим главным блюдом. Есть и лагман с мясом, и уйгурский.'), cards: pick(['Қовурма лағмон', 'Лагман с мясом', 'Уйгурский лагман']) };
-    if (has('норин', 'нарын', 'norin', 'бешбармак', 'beshbarm')) return { text: tt('Норин режем тонко, по-ташкентски. Есть порция 250 г и большая с казы на компанию.'), cards: pick(['Норин', 'Норин с казы', 'Бешбармак']) };
-    if (has('суп', 'шўрва', 'шурпа', 'шорва', 'утр', 'завтрак', 'soup', "sho'rva", 'breakfast', 'nonushta', 'ertalab')) return { text: tt('С утра советую илик шўрву на мозговой кости или нўхат шўрак, а если хочется сытнее — халим.'), cards: pick(['Илик шўрва', 'Нўхат шўрак', 'Халим с говядиной']) };
-    if (has('впервые', 'попробовать', 'посовет', 'что взять', 'вкусн', 'рекоменд', 'хит', 'first', 'recommend', 'try', 'birinchi', 'tavsiya', 'maslahat', 'nima olsak')) return { text: tt('Если вы у нас впервые: узбекский плов, тандир гўшт и юпқа к столу, а на десерт — медовик. Это то, за чем к нам возвращаются.'), cards: pick(['Узбекский плов', 'Тандир гўшт', 'Юпқа', 'Медовик']) };
+    if (has('мяс', 'казы', 'конин', 'рулет', 'meat', "go'sht", 'qazi', 'kazy')) return { text: tt('Из мясного — мясное ассорти с казы, яхна гушт и баранья ножка.'), cards: pick(['Мясное ассорти', 'Яхна гушт', 'Баранья ножка']) };
+    if (has('шашлык', 'кабоб', 'кебаб', 'мангал', 'kebab', 'kabob', 'shashlik', 'grill')) return { text: tt('Шашлыки жарим на углях из халяль-мяса. Попробуйте Наполеон, джаз из баранины и шашлык из фарша.'), cards: pick(['Наполеон', 'Джаз из баранины', 'Шашлык из фарша']) };
+    if (has('лагман', 'лағмон', 'lagmon', "lag'mon", 'lagman', 'noodle')) return { text: tt('Ковурма лагман гости называют нашим главным блюдом. Есть и уйгурский лагман, и манпар.'), cards: pick(['Ковурма лагман', 'Уйгурский лагман', 'Манпар']) };
+    if (has('норин', 'нарын', 'norin', 'бешбармак', 'beshbarm')) return { text: tt('Норин режем тонко, по-ташкентски: есть порция 250 г с казы и килограмм на компанию. Бешбармак — от одной порции до большого блюда.'), cards: pick(['Норин, 250 г', 'Норин', 'Бешбармак']) };
+    if (has('суп', 'шурп', 'шорва', 'утр', 'завтрак', 'soup', "sho'rva", 'breakfast', 'nonushta', 'ertalab')) return { text: tt('С утра советую илик шурпу или нохат шурак, а если хочется сытнее — халим.'), cards: pick(['Илик шурпа', 'Нохат шурак', 'Халим']) };
+    if (has('салат', 'salat', 'salad', 'овощ')) return { text: tt('К мясу берут аччик-чучук, а фирменный салат «Олим Полвон» — с говядиной и моцареллой.'), cards: pick(['Аччик-чучук', 'Фирменный салат «Олим Полвон»', 'Чобан']) };
+    if (has('плов', 'osh', 'plov', 'palov')) return { text: tt('Свадебный плов — с казы, изюмом и нутом. Чайханский плов готовим под заказ.'), cards: pick(['Свадебный плов', 'Чайханский плов']) };
+    if (has('впервые', 'попробовать', 'посовет', 'что взять', 'вкусн', 'рекоменд', 'хит', 'first', 'recommend', 'try', 'birinchi', 'tavsiya', 'maslahat', 'nima olsak')) return { text: tt('Если вы у нас впервые: ковурма лагман, норин и шашлык Наполеон. Это то, за чем к нам возвращаются.'), cards: pick(['Ковурма лагман', 'Норин, 250 г', 'Наполеон']) };
     if (has('привет', 'салам', 'здравств', 'ассалом', 'assalom', 'salom', 'hello', 'hi ')) return { text: tt('Ваалейкум ассалом! Чем помочь: подобрать блюда, оформить доставку или забронировать стол?') };
     return { text: tt('Пока я отвечаю на вопросы о меню, доставке, часах работы и брони — это демо-версия. Попробуйте подсказку ниже.') };
   }
@@ -324,12 +349,19 @@
   const hideHello = () => { if (!hello || hello.hidden) return; hello.classList.add('is-out'); setTimeout(() => hello.hidden = true, 200); };
   let seenHello = false; try { seenHello = !!sessionStorage.getItem('polvon_hello'); } catch {}
   if (hello && !seenHello) {
-    setTimeout(() => {
+    const showHello = () => {
       if (root.classList.contains('ai-open')) return;
       hello.hidden = false; launch?.classList.add('m-wave');
       try { sessionStorage.setItem('polvon_hello', '1'); } catch {}
       setTimeout(hideHello, 8000);
-    }, root.dataset.page === 'home' && !root.classList.contains('no-intro') ? 5200 : 3200);
+    };
+    if (matchMedia('(max-width: 720px)').matches) {
+      // on phones the bubble would cover the hero copy: wait until the first screen is scrolled past
+      const onScroll = () => { if (scrollY > innerHeight * 0.9) { removeEventListener('scroll', onScroll); setTimeout(showHello, 600); } };
+      addEventListener('scroll', onScroll, { passive: true });
+    } else {
+      setTimeout(showHello, root.dataset.page === 'home' && !root.classList.contains('no-intro') ? 5200 : 3200);
+    }
   }
   $('[data-hello-close]')?.addEventListener('click', hideHello);
   $('[data-ai-close]')?.addEventListener('click', closeAI);
@@ -346,9 +378,9 @@
       const pava = $('[data-preview-ava]'); pava?.classList.add('is-thinking');
       await sleep(500); const t = add('bot', ''); t.classList.add('typing'); t.innerHTML = '<i></i><i></i><i></i>';
       await sleep(reduce ? 100 : 1100); t.classList.remove('typing'); pava?.classList.remove('is-thinking'); pava?.classList.add('is-talking');
-      const txt = tt('Возьмите узбекский плов и тандир гўшт на двоих, к ним юпқа, а к чаю — медовик.');
+      const txt = tt('Возьмите ковурма лагман и норин на двоих, а к ним пару шампуров Наполеона.');
       if (reduce) t.textContent = txt; else { t.classList.add('caret'); for (let i = 0; i <= txt.length; i += 2) { t.textContent = txt.slice(0, i); await sleep(18); } t.classList.remove('caret'); }
-      pava?.classList.remove('is-talking'); await sleep(200); renderCards(pick(['Узбекский плов', 'Тандир гўшт', 'Юпқа']), preview);
+      pava?.classList.remove('is-talking'); await sleep(200); renderCards(pick(['Ковурма лагман', 'Норин, 250 г', 'Наполеон']), preview);
     }, { threshold: 0.4 });
     io.observe(preview);
   }
@@ -384,15 +416,20 @@
       c.setAttribute('aria-pressed', String(selected.has(f)));
       applyFilter();
     }));
+    const search = $('[data-menu-search]'), empty = $('[data-menu-empty]');
+    const norm = s => s.toLowerCase().replace(/[‘’'`ʻ]/g, '').replace(/ё/g, 'е').trim();
+    search?.addEventListener('input', () => applyFilter());
     function applyFilter() {
+      const q = norm(search?.value || '');
       $$('.menu-item').forEach(li => {
         const tags = (li.dataset.tags || '').split(' ');
-        const show = [...selected].every(t => tags.includes(t));
+        const show = [...selected].every(t => tags.includes(t)) && (!q || norm(li.dataset.search || '').includes(q));
         const was = !li.classList.contains('is-hidden');
         li.classList.toggle('is-hidden', !show);
         if (show && !was && !reduce) { li.classList.add('is-entering'); requestAnimationFrame(() => requestAnimationFrame(() => li.classList.remove('is-entering'))); }
       });
       $$('.menu-cat').forEach(s => s.classList.toggle('is-empty', !$$('.menu-item:not(.is-hidden)', s).length));
+      if (empty) empty.hidden = !!$('.menu-item:not(.is-hidden)');
       spy();
     }
 

@@ -337,6 +337,7 @@
   }
 
   const pick = (ids) => { const m = getMenu(); return ids.map(n => m.find(d => d.key === n)).filter(d => d && !d.stop); };
+  let fallbackN = 0;
   function intent(text) {
     const t = norm(text);
     const has = (...w) => w.some(x => t.includes(x));
@@ -383,7 +384,11 @@
     if (has('привет', 'салам', 'здравств', 'ассалом', 'assalom', 'salom', 'hello', 'hi ')) return { text: tt('Ваалейкум ассалом! Чем помочь: подобрать блюда, оформить доставку или забронировать стол?') };
     const f = findDishes(t);
     if (f.length) return { text: f.length === 1 ? `${f[0].name}${f[0].desc ? ' — ' + f[0].desc.toLowerCase() : ''}. ${f[0].price ? fmt(f[0].price) : ''}` : tt('Вот что нашёл в меню:'), cards: f };
-    return { text: tt('Не совсем понял. Могу собрать стол на компанию («стол на 4 до 400 000»), найти блюдо по названию, посчитать заказ или рассказать про доставку и бронь.') };
+    // simple mode (AI not connected or busy): vary the wording instead of repeating one line
+    const FALLBACK = [tt('Не совсем понял вопрос. Спросите про блюдо, доставку, бронь или часы работы.'),
+                      tt('Уточните, пожалуйста: вас интересует меню, бронь стола или доставка?'),
+                      tt('Могу подсказать по меню, собрать заказ или помочь с бронью. Что именно нужно?')];
+    return { text: FALLBACK[(fallbackN++) % FALLBACK.length] };
   }
 
   const scrollDown = () => { msgs.scrollTop = msgs.scrollHeight; };

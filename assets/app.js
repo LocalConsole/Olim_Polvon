@@ -694,7 +694,7 @@
   const WEEK = 7 * 864e5;
   // guest chat and admin chat are kept apart: an admin conversation must never leak into a guest's one
   const chatKey = () => isAdmin() ? 'polvon_chat_admin' : 'polvon_chat';
-  const loadChat = () => { try { const c = JSON.parse(localStorage.getItem(chatKey()) || 'null'); return c && Date.now() - c.t < WEEK ? c.m : []; } catch { return []; } };
+  const loadChat = () => { try { const c = JSON.parse(localStorage.getItem(chatKey()) || 'null'); return c && (isAdmin() || Date.now() - c.t < WEEK) ? c.m : []; } catch { return []; } }; // the admin chat never expires, the guest one lives 7 days
   const history = loadChat();
   const memory = {
     get: () => { try { return JSON.parse(localStorage.getItem('polvon_mem') || '[]'); } catch { return []; } },

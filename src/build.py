@@ -473,7 +473,7 @@ index = head("home",
         </div>
       </div>
       <div class="hero-copy">
-        <p class="tagline" data-enter>Почувствуйте вкус, сохраните память.</p>
+        <p class="tagline" data-enter>Har luqmada sifat, har tashrifda mamnuniyat.</p>
         <p class="lede" data-enter>Норин, ковурма лагман, бешбармак и шашлыки на углях — дворец национальных блюд на Большой кольцевой.</p>
         <div class="hero-actions" data-enter>
           <a class="btn" href="contact.html#booking">Забронировать стол {ic("i-arrow")}</a>

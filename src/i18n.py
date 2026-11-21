@@ -181,6 +181,7 @@ T = {
 'Поиск по меню': ("Menyu bo'yicha qidiruv", 'Search the menu'),
 'Полное меню и цены Olim Polvon Milliy Taomlari: шашлыки на углях, норин, бешбармак, ковурма лагман, уйгурская кухня, супы, салаты. Фото каждого блюда. Доставка по Ташкенту.': ("Olim Polvon Milliy Taomlari to'liq menyusi va narxlari: cho'g'da shashliklar, norin, beshbarmoq, qovurma lag'mon, uyg'ur taomlari, sho'rvalar, salatlar. Har bir taomning surati. Toshkent bo'ylab yetkazib berish.", 'Full menu and prices of Olim Polvon Milliy Taomlari: charcoal kebabs, norin, beshbarmak, fried lagman, Uyghur dishes, soups, salads. A photo of every dish. Delivery across Tashkent.'),
 'Почувствуйте вкус, сохраните память.': ('Ta’mni his qiling, xotirani saqlang.', 'Taste it. Keep the memory.'),
+'Har luqmada sifat, har tashrifda mamnuniyat.': ('Har luqmada sifat, har tashrifda mamnuniyat.', 'Har luqmada sifat, har tashrifda mamnuniyat.'),
 'Ресторан узбекской и уйгурской кухни в Ташкенте': ("Toshkentdagi o'zbek va uyg'ur taomlari restorani", 'Uzbek and Uyghur restaurant in Tashkent'),
 'С нашего': ('Bizning', 'From our'),
 'дастархана': ('dasturxondan', 'dastarkhan'),

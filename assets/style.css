@@ -1272,3 +1272,19 @@ img.lz { background: rgba(185,124,29,.08) url(ph-logo.webp) center / auto 56% no
 /* assistant: several admin buttons in one row */
 .ai-go-row { display: flex; flex-wrap: wrap; gap: 8px; align-self: flex-start; max-width: 100%; }
 .ai-go-row .ai-go { min-height: 40px; font-size: 14px; padding-inline: 14px; }
+
+/* assistant voice + keep-chat option */
+.ai-voice { margin-left: auto; width: 34px; height: 34px; display: grid; place-items: center; border-radius: 999px; border: 1px solid var(--line-strong); background: transparent; color: var(--muted); cursor: pointer; transition: color 160ms ease, border-color 160ms ease, background-color 160ms ease; }
+.ai-voice + .ai-forget { margin-left: 8px; }
+.ai-voice .w1, .ai-voice .w2 { opacity: .35; }
+.ai-voice.is-on { color: var(--gold-deep); border-color: var(--gold); background: rgba(230,166,60,.14); }
+.ai-voice.is-on .w1, .ai-voice.is-on .w2 { opacity: 1; }
+.ai-voice.is-speaking .w2 { animation: say-wave 900ms ease-in-out infinite; }
+@keyframes say-wave { 50% { opacity: .25; } }
+.msg-say { display: inline-grid; place-items: center; width: 26px; height: 26px; margin: 0 0 -6px 8px; vertical-align: middle; border: 0; border-radius: 50%; background: rgba(230,166,60,.16); color: var(--gold-deep); cursor: pointer; }
+.msg-say:active { transform: scale(.92); }
+.ai-keep { display: flex; gap: 8px; align-items: center; margin: 4px 0 0; font-size: 12px; color: var(--muted); cursor: pointer; }
+.ai-keep input { width: 16px; height: 16px; accent-color: var(--gold-deep); }
+.is-admin .ai-keep { display: none; }
+@media (prefers-reduced-motion: reduce) { .ai-voice.is-speaking .w2 { animation: none; } }
+@media (max-width: 420px) { .ai-head .ai-status { display: none; } }

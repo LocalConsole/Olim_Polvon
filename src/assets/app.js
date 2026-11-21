@@ -604,54 +604,6 @@
     msgs.append(m); scrollDown(); return m;
   }
   const sleep = ms => new Promise(r => setTimeout(r, ms));
-  /* ---- voice: the browser reads the answers aloud (Web Speech API: free, no server, voices come from the phone) ---- */
-  const voice = (() => {
-    const btn = $('[data-ai-voice]');
-    if (!('speechSynthesis' in window) || !('SpeechSynthesisUtterance' in window)) { btn?.remove(); return { speak() {}, stop() {}, on: () => false, ok: false }; }
-    let on = store.get('voice', false);
-    // Uzbek voices are rare on phones: then Turkish reads Uzbek Latin closest, then Kazakh
-    const PREF = { ru: ['ru'], uz: ['uz', 'tr', 'kk'], en: ['en'] };
-    const pick = lang => { const vs = speechSynthesis.getVoices(); for (const p of PREF[lang] || ['ru']) { const v = vs.find(x => x.lang.toLowerCase().startsWith(p)); if (v) return v; } return null; };
-    const detect = t => /[а-яё]/i.test(t) && !/[ўқғҳ]/i.test(t) ? 'ru' : /[ўқғҳ]|o['ʻ‘’`]|g['ʻ‘’`]|\b(va|bilan|uchun|siz|sizga|bor|yo'q|narxi|so'm|mehmon)\b/i.test(t) ? 'uz' : /[a-z]/i.test(t) ? (LANG === 'uz' ? 'uz' : 'en') : LANG;
-    const clean = t => t.replace(/https?:\S+/g, '').replace(/[\u{1F000}-\u{1FFFF}☀-➿]/gu, '').replace(/(\d)[\s  ](?=\d{3}\b)/g, '$1').replace(/[«»"*_]/g, '').trim();
-    let actx = null;
-    function pop() { // tiny two-note «bloop», 120 ms, quiet
-      try {
-        actx = actx || new (window.AudioContext || window.webkitAudioContext)();
-        const t = actx.currentTime, o = actx.createOscillator(), g = actx.createGain();
-        o.type = 'sine'; o.frequency.setValueAtTime(660, t); o.frequency.exponentialRampToValueAtTime(990, t + .09);
-        g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(.08, t + .02); g.gain.exponentialRampToValueAtTime(.0001, t + .12);
-        o.connect(g).connect(actx.destination); o.start(t); o.stop(t + .13);
-      } catch {}
-    }
-    function speak(text) {
-      speechSynthesis.cancel();
-      const lang = detect(text), u = new SpeechSynthesisUtterance(clean(text)), v = pick(lang);
-      if (v) { u.voice = v; u.lang = v.lang; } else u.lang = { ru: 'ru-RU', uz: 'uz-UZ', en: 'en-US' }[lang];
-      u.rate = 1.07; u.pitch = 1.45;   // the flatbread mascot speaks higher and brighter than a news anchor
-      pop();
-      u.onstart = () => { ava?.classList.add('is-talking'); btn?.classList.add('is-speaking'); };
-      u.onend = u.onerror = () => { ava?.classList.remove('is-talking'); btn?.classList.remove('is-speaking'); };
-      speechSynthesis.speak(u);
-    }
-    const draw = () => { btn?.setAttribute('aria-pressed', String(on)); btn?.classList.toggle('is-on', on); };
-    btn?.addEventListener('click', () => {
-      on = !on; store.set('voice', on); draw();
-      if (on) { toast(tt('Ответы будут озвучиваться')); const last = $$('.msg--bot:not(.typing)', msgs).pop(); if (last) speak(last.dataset.say || last.textContent); }
-      else speechSynthesis.cancel();
-    });
-    speechSynthesis.getVoices(); speechSynthesis.addEventListener?.('voiceschanged', () => {});
-    draw();
-    return { speak, stop: () => speechSynthesis.cancel(), on: () => on, ok: true };
-  })();
-  // a small «listen» button under each answer
-  function addSay(m, text) {
-    if (!voice.ok || !text) return;
-    m.dataset.say = text;
-    const b = document.createElement('button'); b.type = 'button'; b.className = 'msg-say'; b.setAttribute('aria-label', tt('Прослушать')); b.title = tt('Прослушать');
-    b.innerHTML = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4z"/><path d="M15.5 9.5a3.5 3.5 0 0 1 0 5"/></svg>';
-    b.addEventListener('click', () => voice.speak(text)); m.append(b);
-  }
   const keepBox = $('[data-ai-keep]');
   if (keepBox) {
     keepBox.checked = !!store.get('chat_keep', false);
@@ -695,7 +647,6 @@
     typing.remove();
     ava?.classList.remove('is-thinking'); ava?.classList.add('is-talking');
     const m = addMsg('bot', ''); await stream(m, text);
-    addSay(m, text); if (voice.on()) voice.speak(text);
     ava?.classList.remove('is-talking');
     renderCards(extra.cards, msgs);
     if (extra.planAll) {
@@ -1138,7 +1089,7 @@
   }
   function greet() {
     if (greeted) return; greeted = true; renderChips();
-    if (history.length) { history.forEach(m => { const el = addMsg(m.role === 'me' ? 'me' : 'bot', m.text); if (m.role !== 'me') addSay(el, m.text); }); sysNote(tt('Продолжаем с того места, где остановились.')); }
+    if (history.length) { history.forEach(m => addMsg(m.role === 'me' ? 'me' : 'bot', m.text)); sysNote(tt('Продолжаем с того места, где остановились.')); }
     else botReply(isAdmin() ? tt('Режим администратора. Спросите, как поменять цену, отметить «закончилось», найти заказы или брони — дам кнопки.') : settings().greeting);
   }
   // logging in or out switches the assistant to the other conversation
@@ -1157,7 +1108,6 @@
     greet();
   }
   function closeAI() {
-    voice.stop();
     root.classList.remove('ai-open'); document.body.classList.remove('ai-open');
     $$('[data-ai-open]').forEach(b => b.setAttribute('aria-expanded', 'false'));
     lastFocus?.focus?.({ preventScroll: true });

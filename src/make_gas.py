@@ -117,7 +117,9 @@ core += r'''    let raw = "", err = "", provider = "", retryAfter = 0, limited =
     if (!raw) return { error: "ai unavailable", detail: err.slice(0, 400) };
     let o; try { o = JSON.parse(raw); } catch (x) { o = { reply: raw.replace(/[{}"]/g, "").trim(), dishes: [] }; }
     const clean = a => (Array.isArray(a) ? a : []).filter(x => typeof x === "string" && x.trim()).slice(0, 3).map(x => x.trim().slice(0, 80));
-    const go = body.admin && o.go && typeof o.go === "object" && ["edit", "add", "tab"].indexOf(o.go.to) >= 0 ? { to: o.go.to, dish: String(o.go.dish || "").slice(0, 80), cat: String(o.go.cat || "").slice(0, 20), tab: String(o.go.tab || "").slice(0, 20) } : null;
+    const goList = (Array.isArray(o.go) ? o.go : o.go ? [o.go] : []).filter(g => g && typeof g === "object" && ["edit", "add", "tab"].indexOf(g.to) >= 0).slice(0, 3)
+      .map(g => ({ to: g.to, dish: String(g.dish || "").slice(0, 80), cat: String(g.cat || "").slice(0, 20), tab: String(g.tab || "").slice(0, 20) }));
+    const go = body.admin && goList.length ? goList : null;
     return { reply: String(o.reply || "").slice(0, 900), go: go, dishes: Array.isArray(o.dishes) ? o.dishes.slice(0, 4) : [], remember: clean(o.remember), forget: clean(o.forget), provider: provider, switched: provider === "groq" && !!AI_KEY };
 '''
 gas = gas.replace("__ADMIN__", ADMIN).replace("__SYSTEM__", SYSTEM).replace("__TONES__", TONES).replace("__CORE__", core)

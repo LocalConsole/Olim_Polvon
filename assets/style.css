@@ -1295,3 +1295,7 @@ img.lz { background: rgba(185,124,29,.08) url(ph-logo.webp) center / auto 56% no
 .co-sync.is-ok { color: #2f8a49; } .co-sync.is-bad { color: var(--ember); }
 @media (max-width: 640px) { .trk { left: 12px; bottom: 12px; } .has-order .trk { bottom: 80px; } }
 @media (prefers-reduced-motion: reduce) { .trk-chip, .trk-chip .trk-dot { animation: none !important; } }
+
+/* assistant: several admin buttons in one row */
+.ai-go-row { display: flex; flex-wrap: wrap; gap: 8px; align-self: flex-start; max-width: 100%; }
+.ai-go-row .ai-go { min-height: 40px; font-size: 14px; padding-inline: 14px; }

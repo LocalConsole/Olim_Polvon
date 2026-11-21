@@ -609,14 +609,21 @@
     return null;
   }
   function renderGo(go) {
-    const g = goHref(go); if (!g) return;
-    const a = document.createElement('a'); a.className = 'btn msg pop ai-go'; a.href = g.href;
+    if (!isAdmin()) return;
+    const list = (Array.isArray(go) ? go : [go]).slice(0, 3);
+    const row = document.createElement('div'); row.className = 'ai-go-row msg pop';
+    list.forEach(one => { const a = goLink(one); if (a) row.append(a); });
+    if (row.children.length) { msgs.append(row); scrollDown(); }
+  }
+  function goLink(go) {
+    const g = goHref(go); if (!g) return null;
+    const a = document.createElement('a'); a.className = 'btn ai-go'; a.href = g.href;
     a.innerHTML = `${esc(g.label)} <svg class="icon" aria-hidden="true"><use href="#i-arrow"/></svg>`;
     a.addEventListener('click', e => {
       const u = new URL(a.href, location.href);
       if (u.pathname === location.pathname) { e.preventDefault(); window.history.replaceState(null, '', u.search + u.hash); closeAI(); runAdminJump(); }
     });
-    msgs.append(a); scrollDown();
+    return a;
   }
   function renderOrder() {
     const box = document.createElement('div'); box.className = 'ai-order pop';
@@ -832,9 +839,10 @@
   // booking form picks up the order chosen in the assistant
   const note = $('#b-note'); const pre = store.get('booking_note', '');
   if (note && pre && !note.value) { note.value = pre; store.set('booking_note', ''); }
+  const ADMIN_CHIPS = [tt('Как поменять цену?'), tt('Блюдо закончилось'), tt('Где заказы и брони?'), tt('Добавить новое блюдо')];
   function renderChips() {
     chipsBox.innerHTML = '';
-    CHIPS.forEach((c, i) => { const b = document.createElement('button'); b.type = 'button'; b.textContent = c; b.style.animationDelay = i * 40 + 'ms'; b.addEventListener('click', () => ask(c)); chipsBox.append(b); });
+    (isAdmin() ? ADMIN_CHIPS : CHIPS).forEach((c, i) => { const b = document.createElement('button'); b.type = 'button'; b.textContent = c; b.style.animationDelay = i * 40 + 'ms'; b.addEventListener('click', () => ask(c)); chipsBox.append(b); });
   }
   /* ---- live AI through the Cloudflare Worker (key never reaches the browser) ---- */
   // one or more addresses, comma separated: Cloudflare Worker first, Google Apps Script as a backup
@@ -846,7 +854,10 @@
   // conversation survives page changes within the visit
   // chat and guest preferences live only on this device (localStorage), chat for 7 days
   const WEEK = 7 * 864e5;
-  const history = (() => { try { const c = JSON.parse(localStorage.getItem('polvon_chat') || 'null'); return c && Date.now() - c.t < WEEK ? c.m : []; } catch { return []; } })();
+  // guest chat and admin chat are kept apart: an admin conversation must never leak into a guest's one
+  const chatKey = () => isAdmin() ? 'polvon_chat_admin' : 'polvon_chat';
+  const loadChat = () => { try { const c = JSON.parse(localStorage.getItem(chatKey()) || 'null'); return c && Date.now() - c.t < WEEK ? c.m : []; } catch { return []; } };
+  const history = loadChat();
   const memory = {
     get: () => { try { return JSON.parse(localStorage.getItem('polvon_mem') || '[]'); } catch { return []; } },
     set: a => { try { localStorage.setItem('polvon_mem', JSON.stringify(a.slice(-12))); } catch {} },
@@ -978,7 +989,8 @@
     if (j.switched && !switchedShown) { switchedShown = true; sysNote(tt('Основной ИИ на лимите — ответил запасной. Разговор сохранён.')); }
     const learned = memory.apply(j.remember, j.forget);
     if (learned.length) setTimeout(() => sysNote(tt('Запомнил на этом устройстве: ') + learned.join(', ') + '. ' + tt('Стереть — кнопка «Забыть меня».')), 400);
-    let go = isAdmin() ? j.go : null;
+    let go = isAdmin() ? (Array.isArray(j.go) ? j.go : j.go ? [j.go] : null) : null;
+    if (go && !go.length) go = null;
     if (isAdmin() && !go) {
       // the model sometimes forgets the hint: infer it from the admin's own words
       const t = norm(q);
@@ -1006,14 +1018,19 @@
       if (ai) { r = ai; r.fast = true; }
     }
     history.push({ role: 'me', text: q }, { role: 'bot', text: r.text }); if (history.length > 20) history.splice(0, history.length - 20);
-    try { localStorage.setItem('polvon_chat', JSON.stringify({ t: Date.now(), m: history })); } catch {}
+    try { localStorage.setItem(chatKey(), JSON.stringify({ t: Date.now(), m: history })); } catch {}
     await botReply(r.text, r);
   }
   function greet() {
     if (greeted) return; greeted = true; renderChips();
     if (history.length) { history.forEach(m => addMsg(m.role === 'me' ? 'me' : 'bot', m.text)); sysNote(tt('Продолжаем с того места, где остановились.')); }
-    else botReply(settings().greeting);
+    else botReply(isAdmin() ? tt('Режим администратора. Спросите, как поменять цену, отметить «закончилось», найти заказы или брони — дам кнопки.') : settings().greeting);
   }
+  // logging in or out switches the assistant to the other conversation
+  document.addEventListener('admin-change', () => {
+    history.length = 0; history.push(...loadChat()); if (!msgs) return; msgs.innerHTML = ''; greeted = false; renderChips();
+    if (root.classList.contains('ai-open') || panel?.classList.contains('ai-panel--inline')) greet();
+  });
   function openAI() {
     if (!panel) return;
     // on the home page the chat may already sit inside the "Не знаете, что выбрать?" block
@@ -1055,7 +1072,7 @@
   forgetBtn?.addEventListener('click', () => {
     if (!forgetBtn.dataset.sure) { forgetBtn.dataset.sure = '1'; forgetBtn.textContent = tt('Точно стереть?'); setTimeout(() => { delete forgetBtn.dataset.sure; forgetBtn.textContent = tt('Забыть меня'); }, 3500); return; }
     delete forgetBtn.dataset.sure; forgetBtn.textContent = tt('Забыть меня');
-    try { ['polvon_chat', 'polvon_mem', 'polvon_cart'].forEach(k => localStorage.removeItem(k)); sessionStorage.removeItem('polvon_ai_ep'); } catch {}
+    try { ['polvon_chat', 'polvon_chat_admin', 'polvon_mem', 'polvon_cart'].forEach(k => localStorage.removeItem(k)); sessionStorage.removeItem('polvon_ai_ep'); } catch {}
     history.length = 0; cart.clear?.(); msgs.innerHTML = '';
     sysNote(tt('Готово: переписка и предпочтения стёрты с этого устройства.'));
     botReply(settings().greeting);

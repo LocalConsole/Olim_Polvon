@@ -1,6 +1,11 @@
 # Translations: Russian source -> (Uzbek Latin, English).
 # Strings not listed here stay in Russian. Prices/units are handled by regex in build_i18n.py.
 T = {
+'Как поменять цену?': ('Narxni qanday o\'zgartiraman?', 'How do I change a price?'),
+'Блюдо закончилось': ('Taom tugadi', 'A dish is sold out'),
+'Где заказы и брони?': ('Buyurtma va bronlar qayerda?', 'Where are orders and bookings?'),
+'Добавить новое блюдо': ('Yangi taom qo\'shish', 'Add a new dish'),
+'Режим администратора. Спросите, как поменять цену, отметить «закончилось», найти заказы или брони — дам кнопки.': ("Administrator rejimi. Narxni o'zgartirish, «tugadi» deb belgilash, buyurtma yoki bronlarni topish haqida so'rang — tugmalar beraman.", 'Admin mode. Ask how to change a price, mark a dish as sold out, or find orders and bookings — I\'ll give you buttons.'),
 'Заказы и брони — общие с ботом; меню и стоп-лист — на этом устройстве': ('Buyurtma va bronlar bot bilan umumiy; menyu va stop-list shu qurilmada', 'Orders and bookings are shared with the bot; menu and stop list stay on this device'),
 # --- orders/bookings through the server, status chip, receipts, server admin login
 'Администратор перезвонит': ("Administrator qo'ng'iroq qiladi", 'The administrator will call you'),

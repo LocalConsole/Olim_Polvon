@@ -34,8 +34,6 @@ ITEMS = [
  ("66d016dccd9b640c7bc6d866", "shashlik", "Kavkaz koreyka", "Кавказ корейка", "Caucasian lamb rack", "Qo‘y go‘shti koreyka, pomidor", "Бараньи рёбрышки, помидор", "Lamb rack, tomato", 103000, "p", True),
  ("66d016dccd9b640c7bc6d86a", "shashlik", "Kavkaz qiyma", "Кавказ из фарша", "Caucasian minced kebab", "Mol va qo‘y go‘shti", "Говядина и баранина", "Beef and lamb", 65000, "p", True),
  ("66d016dccd9b640c7bc6d86c", "shashlik", "Kavkaz jaz", "Кавказ джаз", "Caucasian jaz", "Mol go‘shti, pomidor", "Говядина, помидор", "Beef, tomato", 59000, "p", True),
- ("66d016dccd9b640c7bc6d872", "shashlik", "Shashlik assorti (kavkaz)", "Ассорти шашлыков (кавказ)", "Caucasian kebab platter", "Kavkaz shashliklari assortisi", "Ассорти кавказских шашлыков", "A platter of Caucasian kebabs", 240000, "big", True),
- ("66d016dccd9b640c7bc6d874", "shashlik", "Shashlik assorti", "Ассорти шашлыков", "Kebab platter", "Shashliklar assortisi", "Ассорти шашлыков", "A platter of kebabs", 198000, "big", True),
  # --- milliy
  ("66d016dacd9b640c7bc6d7c0", "milliy", "Qaynatma sho‘rva", "Кайнатма шурпа", "Qaynatma shorva", "Mol go‘shti, kartoshka, sabzi, bolgar qalampiri, piyoz", "Говядина, картофель, морковь, перец, лук", "Beef, potato, carrot, pepper, onion", 53000, "p", True),
  ("66d016dacd9b640c7bc6d7c2", "milliy", "Ko‘za sho‘rva", "Коза шурпа", "Koza shorva (pot soup)", "Mol va qo‘y go‘shti, kartoshka, sabzi, bolgar qalampiri, pomidor, piyoz", "Говядина и баранина, картофель, морковь, перец, помидор, лук", "Beef and lamb, potato, carrot, pepper, tomato, onion", 58000, "p", True),
@@ -76,12 +74,9 @@ ITEMS = [
  ("66d016dccd9b640c7bc6d852", "uygur", "Manpar", "Манпар", "Manpar", "Manpar xamiri, mol go‘shti, bolgar qalampiri, basay, pomidor, selderey, sarimsoq", "Кусочки теста, говядина, перец, пекинская капуста, помидор, сельдерей, чеснок", "Hand-torn dough, beef, pepper, bok choy, tomato, celery, garlic", 41000, "p", True),
  ("66d016dccd9b640c7bc6d854", "uygur", "Ganfan", "Ганфан", "Ganfan", "Guruch, mol go‘shti, bolgar qalampiri, basay, pomidor, selderey, sarimsoq", "Рис, говядина, перец, пекинская капуста, помидор, сельдерей, чеснок", "Rice, beef, pepper, bok choy, tomato, celery, garlic", 48000, "p", True),
  ("66db065ccd9b640c7bc6f4ac", "uygur", "Uyg‘ur lag‘moni, kichik", "Уйгурский лагман, малый", "Uyghur lagman, small", "", "", "", 37000, "p", True),
- ("66db06b4cd9b640c7bc6f4ae", "uygur", "Qovurilgan lag‘mon, kichik", "Ковурма лагман, малый", "Fried lagman, small", "", "", "", 36000, "p", True),
- ("66db0703cd9b640c7bc6f4b1", "uygur", "Go‘shtli go‘sht", "Гуштли гушт", "Goshtli gosht", "", "", "", 68000, "p", True),
  ("66db0780cd9b640c7bc6f4b6", "uygur", "Sokoro, 240 g", "Сокоро, 240 г", "Sokoro, 240 g", "", "", "", 70000, "g240", True),
  ("66db07bccd9b640c7bc6f4b9", "uygur", "Sumboro, 240 g", "Сумборо, 240 г", "Sumboro, 240 g", "", "", "", 70000, "g240", True),
  # --- salat
- ("66d016dacd9b640c7bc6d7bc", "salat", "Maxsus «Olim Polvon» salati", "Фирменный салат «Олим Полвон»", "Olim Polvon signature salad", "Pomidor, bodring, ko‘katlar, shampinion, bolgar qalampiri, mol go‘shti, mozzarella, maxsus sous", "Помидор, огурец, зелень, шампиньоны, перец, говядина, моцарелла, фирменный соус", "Tomato, cucumber, greens, mushrooms, pepper, beef, mozzarella, house sauce", 59000, "p", True),
  ("66d016dacd9b640c7bc6d790", "salat", "Achchiq chuchuk", "Аччик-чучук", "Achchiq-chuchuk", "Pomidor, bodring, piyoz", "Помидор, огурец, лук", "Tomato, cucumber, onion", 20000, "p", True),
  ("66d016dacd9b640c7bc6d792", "salat", "Chiroqchi", "Чиракчи", "Chiroqchi", "Pomidor, bodring, piyoz, suzma", "Помидор, огурец, лук, сузьма", "Tomato, cucumber, onion, suzma", 28000, "p", True),
  ("66d016dacd9b640c7bc6d794", "salat", "Bahor", "Бахор", "Bahor", "Bodring, ukrop, qatiq", "Огурец, укроп, катык", "Cucumber, dill, yoghurt", 18000, "p", True),
@@ -93,8 +88,6 @@ ITEMS = [
  ("custom-selt", "salat", "Tuzlangan selt balig‘i", "Сельдь солёная", "Salted herring", "", "", "", 45000, "p", False),
  ("custom-mimoza", "salat", "Mimoza", "Мимоза", "Mimosa salad", "", "", "", 46000, "p", False),
  ("custom-shuba", "salat", "Shuba salat", "Сельдь под шубой", "Herring under a fur coat", "", "", "", 48000, "p", False),
- ("66d016dacd9b640c7bc6d796", "salat", "Sveji assorti", "Свежее ассорти", "Fresh vegetable platter", "Pomidor, bodring, sarimsoq, ko‘katlar, limon", "Помидоры, огурцы, чеснок, зелень, лимон", "Tomato, cucumber, garlic, herbs, lemon", 30000, "p", True),
- ("66d016dacd9b640c7bc6d798", "salat", "Zelen assorti", "Ассорти зелени", "Herb platter", "Ukrop, kashnich, ko‘k piyoz, rayhon, sarimsoq, limon", "Укроп, кинза, зелёный лук, райхон, чеснок, лимон", "Dill, coriander, spring onion, basil, garlic, lemon", 25000, "p", True),
  ("66d016dacd9b640c7bc6d79a", "salat", "Suzma", "Сузьма", "Suzma", "Suzma, ko‘katlar", "Сузьма с зеленью", "Strained yoghurt with herbs", 15000, "p", True),
  ("66d016dacd9b640c7bc6d79e", "salat", "Vinegret", "Винегрет", "Vinaigrette", "Lavlagi, kartoshka, sabzi, karam, piyoz, no‘xat", "Свёкла, картофель, морковь, капуста, лук, горошек", "Beetroot, potato, carrot, cabbage, onion, peas", 28000, "p", True),
  ("66d016dacd9b640c7bc6d7a0", "salat", "Rukola sirli", "Рукола с сыром", "Rocket and cheese", "Rukola, cherri pomidor, bolgar qalampiri, sir", "Рукола, черри, перец, сыр", "Rocket, cherry tomatoes, pepper, cheese", 41000, "p", True),
@@ -114,7 +107,6 @@ ITEMS = [
  # --- yevropa
  ("66d016dbcd9b640c7bc6d7fc", "yevropa", "Okroshka", "Окрошка", "Okroshka", "Ot go‘shti, bodring, kartoshka, tuxum, ukrop, qatiq", "Конина, огурец, картофель, яйцо, укроп, катык", "Horse meat, cucumber, potato, egg, dill, yoghurt", 38000, "p", True),
  ("66d016dbcd9b640c7bc6d7fe", "yevropa", "Kuksi", "Кукси", "Kuksi", "Mol go‘shti, karam, bodring, tuxum, pomidor, maxsus lapsha, soya", "Говядина, капуста, огурец, яйцо, помидор, лапша, соя", "Beef, cabbage, cucumber, egg, tomato, noodles, soy", 44000, "p", True),
- ("66d016dbcd9b640c7bc6d814", "yevropa", "Kartoshka fri", "Картофель фри", "French fries", "Kartoshka, ketchup", "Картофель, кетчуп", "Potato, ketchup", 21000, "p", True),
  ("66d016dccd9b640c7bc6d83c", "yevropa", "Kolbasa klassik", "Колбаски классические", "Classic sausages", "Kolbasa, kartoshka, sarimsoqli sous", "Колбаски, картофель, чесночный соус", "Sausages, potatoes, garlic sauce", 81000, "p", True),
  ("66d016dccd9b640c7bc6d83e", "yevropa", "Kolbasa achchiq", "Колбаски острые", "Spicy sausages", "Achchiq kolbasa, kartoshka, sarimsoqli sous", "Острые колбаски, картофель, чесночный соус", "Spicy sausages, potatoes, garlic sauce", 81000, "p", True),
  ("custom-pasta-alfredo", "yevropa", "Pasta Alfredo", "Паста Альфредо", "Pasta Alfredo", "Qaymoqli Alfredo sousi bilan", "Со сливочным соусом альфредо", "With creamy Alfredo sauce", 64000, "p", False),

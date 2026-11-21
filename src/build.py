@@ -437,7 +437,7 @@ def story_html():
     return " ".join(out)
 
 delivery_html = " · ".join(f'<a href="tel:{h}">{p}</a>' for p, h in SITE["delivery"])
-CAT_PREVIEW = {"shashlik": "Наполеон", "milliy": "Норин", "uygur": "Ковурма лагман", "salat": "Фирменный салат «Олим Полвон»", "yevropa": "Колбаски классические", "non": "Лепёшка", "ichimlik": "Coca-Cola"}
+CAT_PREVIEW = {"shashlik": "Наполеон", "milliy": "Норин", "uygur": "Ковурма лагман", "salat": "Чиракчи", "yevropa": "Колбаски классические", "non": "Лепёшка", "ichimlik": "Coca-Cola"}
 cats_rows = "".join(f'''<li class="cat-row"><a href="menu.html#{c["id"]}" data-cat="{c["id"]}" data-title="{c["ru"]}" data-count="{len(c["items"])} позиций" data-preview="{dish(CAT_PREVIEW[c["id"]])["img"]}">
   <img class="cat-thumb" src="{dish(CAT_PREVIEW[c["id"]])["img"]}" alt="" loading="lazy" width="64" height="64">
   <span class="cat-name">{c["ru"]}</span><span class="cat-count">{len(c["items"])} позиций</span><span class="cat-arrow">{ic("i-arrow")}</span></a></li>''' for c in MENU)

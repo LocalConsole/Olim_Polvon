@@ -56,30 +56,22 @@ from menu_data import CATS, UNITS, ITEMS
 MENU_IMG = "assets/menu/"
 
 # ---- fast images: a 300px copy for phones/slow links + a tiny blurred preview drawn under every photo
-import base64, io
+import io
 from PIL import Image as _PIL
-_LQ = {}
 def _small(path):
     """assets/menu/x.webp -> assets/menu/x-s.webp (300px), made once and refreshed when the photo changes"""
     p = ROOT / path; s = p.with_name(p.stem + "-s.webp")
     if not s.exists() or s.stat().st_mtime < p.stat().st_mtime:
         im = _PIL.open(p).convert("RGB"); im.thumbnail((300, 300)); im.save(s, quality=72, method=6)
     return str(pathlib.Path(path).with_name(s.name))
-def lqip(path):
-    """~200-byte blurred preview as a data: URL, shown instantly while the real photo loads"""
-    if path not in _LQ:
-        im = _PIL.open(ROOT / path).convert("RGB"); im.thumbnail((24, 24))
-        buf = io.BytesIO(); im.save(buf, "WEBP", quality=40)
-        _LQ[path] = "data:image/webp;base64," + base64.b64encode(buf.getvalue()).decode()
-    return _LQ[path]
-def fast_img(url, alt="", w=600, h=450, sizes="(max-width: 600px) 92vw, 360px", eager=False, extra=""):
+def fast_img(url, alt="", w=600, h=450, sizes="(max-width: 600px) 92vw, 360px", eager=False, extra="", cls=""):
     """menu photo: blurred preview at once, 300px for small screens/slow internet, 600px when needed"""
     path, _, q = url.partition("?"); q = ("?" + q) if q else ""
     small = _small(path) + q
     load = 'fetchpriority="high"' if eager else 'loading="lazy"'
-    style = f'background:#e8e2d6 url({lqip(path)}) center/cover no-repeat'
-    return (f'<img src="{small}" srcset="{small} 300w, {url} 600w" sizes="{sizes}" alt="{html.escape(alt)}" '
-            f'width="{w}" height="{h}" {load} decoding="async" style="{style}"{extra}>')
+    # class "lz": the restaurant logo (preloaded first) sits in the frame until the photo arrives
+    return (f'<img class="lz{(" " + cls) if cls else ""}" src="{small}" srcset="{small} 300w, {url} 600w" sizes="{sizes}" alt="{html.escape(alt)}" '
+            f'width="{w}" height="{h}" {load} decoding="async"{extra}>')
 
 USED_PHOTOS = {"f163008803"}
 TAG_LABEL = {"hit": "Хит", "spicy": "Острое", "veg": "Без мяса"}
@@ -122,8 +114,8 @@ def img(id_, alt, sizes="(max-width: 900px) 100vw, 50vw", eager=False, has1280=T
     src = f"{IMG}photo-{id_}-960.webp"
     load = 'fetchpriority="high"' if eager else 'loading="lazy"'
     c = f' class="{cls}"' if cls else ""
-    style = f' style="background:#e8e2d6 url({lqip(IMG + "photo-" + id_ + "-500.webp")}) center/cover no-repeat"'
-    return f'<img{c} src="{src}" srcset="{srcset}" sizes="{sizes}" alt="{html.escape(alt)}" {load} decoding="async"{style}>'
+    c = f' class="lz {cls}"' if cls else ' class="lz"'
+    return f'<img{c} src="{src}" srcset="{srcset}" sizes="{sizes}" alt="{html.escape(alt)}" {load} decoding="async">'
 NO1280 = {"f163008803"}
 def photo(id_, alt, **kw):
     kw.setdefault("has1280", id_ not in NO1280)
@@ -262,7 +254,7 @@ NAV = [("index.html", "Главная"), ("menu.html", "Меню"), ("about.html
 def head(page, title, desc, path, schemas, og_img="share.jpg", noindex=False, preload_img=None):
     url = SITE["domain"] + "/" + ("" if path == "index.html" else path)
     robots = '<meta name="robots" content="noindex, nofollow">' if noindex else '<meta name="robots" content="index, follow, max-image-preview:large">'
-    pre = f'<link rel="preload" as="image" href="{preload_img}" fetchpriority="high">' if preload_img else ""
+    pre = '<link rel="preload" as="image" href="assets/ph-logo.webp" fetchpriority="high">' + (f'<link rel="preload" as="image" href="{preload_img}" fetchpriority="high">' if preload_img else "")
     return f"""<!doctype html>
 <html lang="ru" class="no-js" data-page="{page}">
 <head>
@@ -530,7 +522,7 @@ index = head("home",
       <div class="cats-layout">
         <ul class="cats" data-cats>{cats_rows}</ul>
         <aside class="cat-card" data-cat-card aria-hidden="true">
-          <div class="cat-card-ph">{"".join(fast_img(dish(CAT_PREVIEW[c["id"]])["img"], sizes="(max-width: 900px) 92vw, 520px", extra=f' data-for="{c["id"]}"' + (' class="is-on"' if i == 0 else "")) for i, c in enumerate(MENU))}</div>
+          <div class="cat-card-ph">{"".join(fast_img(dish(CAT_PREVIEW[c["id"]])["img"], sizes="(max-width: 900px) 92vw, 520px", extra=f' data-for="{c["id"]}"', cls="is-on" if i == 0 else "") for i, c in enumerate(MENU))}</div>
           <div class="cat-card-cap"><b data-cat-card-title>{MENU[0]["ru"]}</b><span data-cat-card-count>{len(MENU[0]["items"])} позиций</span></div>
         </aside>
       </div>

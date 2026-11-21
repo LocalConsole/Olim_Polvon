@@ -1266,5 +1266,5 @@ body::before {
 .type-pill--table { background: rgba(76,160,90,.18); }
 @media (prefers-reduced-motion: reduce) { .co-live-dot, .co-geo-btn.is-busy svg { animation: none; } }
 
-/* fast images: hide alt text while the blurred preview is showing */
-img[style*="background"] { color: transparent; }
+/* fast images: the restaurant logo fills the frame until the photo has loaded (logo is preloaded first) */
+img.lz { background: rgba(185,124,29,.08) url(ph-logo.webp) center / auto 56% no-repeat; color: transparent; }

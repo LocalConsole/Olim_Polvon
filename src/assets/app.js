@@ -1374,3 +1374,12 @@
   const io = new IntersectionObserver(es => es.forEach(en => { if (en.isIntersecting) { en.target.classList.add('in'); io.unobserve(en.target); } }), { threshold: 0.25 });
   els.forEach(el => io.observe(el));
 })();
+
+/* a photo that failed to load keeps showing the restaurant logo instead of a broken-image icon */
+document.addEventListener('error', e => {
+  const im = e.target;
+  if (im && im.tagName === 'IMG' && im.classList.contains('lz') && !im.dataset.failed) {
+    im.dataset.failed = '1'; im.removeAttribute('srcset');
+    im.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+  }
+}, true);

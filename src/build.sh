@@ -8,6 +8,6 @@ python3 make_worker.py && python3 make_gas.py      # makes ../worker/worker.js a
 # publish: copy html + used assets to repo root
 for f in *.html robots.txt sitemap.xml site.webmanifest share.jpg; do cp "$f" ../; done
 cp -r uz en ../
-mkdir -p ../assets && cp assets/app.js assets/style.css assets/*.png ../assets/ && cp -r assets/fonts2 ../assets/
+mkdir -p ../assets && cp assets/app.js assets/style.css assets/*.png assets/ph-logo.webp ../assets/ && cp -r assets/fonts2 ../assets/
 for f in $(cat *.html uz/*.html en/*.html assets/style.css assets/app.js | grep -oE 'assets/(img|menu)/[A-Za-z0-9._-]+' | sort -u); do mkdir -p ../$(dirname $f); cp $f ../$f; done
 rm -rf uz en *.html assets/style.css

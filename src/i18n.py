@@ -1,6 +1,12 @@
 # Translations: Russian source -> (Uzbek Latin, English).
 # Strings not listed here stay in Russian. Prices/units are handled by regex in build_i18n.py.
 T = {
+'Озвучивать ответы': ('Javoblarni ovozli o\'qish', 'Read answers aloud'),
+'Ответы будут озвучиваться': ('Javoblar ovozli o\'qiladi', 'Answers will be read aloud'),
+'Прослушать': ('Tinglash', 'Listen'),
+'Хранить переписку 90 дней (на этом телефоне)': ('Yozishmani 90 kun saqlash (shu telefonda)', 'Keep the chat for 90 days (on this phone)'),
+'Переписка сохранится на 90 дней на этом телефоне': ('Yozishma shu telefonda 90 kun saqlanadi', 'The chat will be kept for 90 days on this phone'),
+'Переписка снова хранится 7 дней': ('Yozishma yana 7 kun saqlanadi', 'The chat is kept for 7 days again'),
 'Как поменять цену?': ('Narxni qanday o\'zgartiraman?', 'How do I change a price?'),
 'Блюдо закончилось': ('Taom tugadi', 'A dish is sold out'),
 'Где заказы и брони?': ('Buyurtma va bronlar qayerda?', 'Where are orders and bookings?'),

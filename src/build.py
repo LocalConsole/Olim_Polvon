@@ -383,6 +383,7 @@ def footer():
   <div class="ai-head">
     <span class="ai-ava ai-ava--mascot" data-ai-ava>{mascot()}</span>
     <div><b>Ёрдамчи</b><span class="ai-status">AI-помощник {SITE['name']}</span></div>
+    <button class="ai-voice" type="button" data-ai-voice aria-pressed="false" aria-label="Озвучивать ответы" title="Озвучивать ответы"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4z"/><path class="w1" d="M15.5 9.5a3.5 3.5 0 0 1 0 5"/><path class="w2" d="M18.5 6.5a8 8 0 0 1 0 11"/></svg></button>
     <button class="ai-forget" type="button" data-ai-forget title="Забыть меня: стереть переписку и предпочтения с этого устройства">Забыть меня</button>
     <button class="ai-close" type="button" data-ai-close aria-label="Закрыть чат">{ic("i-close")}</button>
   </div>
@@ -396,6 +397,7 @@ def footer():
       <button class="ai-send" type="submit" aria-label="Отправить">{ic("i-send")}</button>
     </form>
     <p class="ai-foot">Переписка и ваши предпочтения хранятся только на этом устройстве. Не пишите сюда телефоны и личные данные.</p>
+    <label class="ai-keep"><input type="checkbox" data-ai-keep> <span>Хранить переписку 90 дней (на этом телефоне)</span></label>
   </div>
 </section>
 <div class="toast-host" aria-live="polite"></div>

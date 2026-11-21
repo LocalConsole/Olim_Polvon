@@ -790,6 +790,9 @@ table.data .cat-row td { background: var(--bg-3); font-weight: 700; font-size: 1
   .mascot .m-all, .mascot .m-eye, .mascot .m-cap, .mascot .m-shadow, .hero::before { animation: none !important; }
   .intro { display: none; }
 }
+.booking-rules { margin: 4px 0 20px; padding: 14px 16px; border-left: 3px solid var(--gold-deep); background: color-mix(in srgb, currentColor 5%, transparent); border-radius: 8px; font-size: 15px; }
+.booking-rules ul { margin: 6px 0 0; padding-left: 18px; }
+.booking-rules li { margin: 2px 0; }
 /* ================= ornament, plates, light theme ================= */
 
 /* ---------- girih lattice behind everything (tone follows the theme) ---------- */

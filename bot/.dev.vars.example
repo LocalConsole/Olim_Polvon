@@ -1,0 +1,10 @@
+BOT_TOKEN=123:test
+WEBHOOK_SECRET=local-secret
+SITE_KEY=local-site-key
+ADMIN_PASS=local-pass
+GROQ_KEY=
+AI_KEY=
+DEV_IDS=
+# for tests without real Telegram/Groq:
+# TG_API=http://127.0.0.1:9100
+# GROQ_API=http://127.0.0.1:9100

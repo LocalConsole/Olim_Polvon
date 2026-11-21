@@ -20,6 +20,8 @@ SITE = {
     "bot": "https://t.me/Olimpolvon_bot",
     # Cloudflare Worker that talks to Gemini (see worker/worker.js). Empty = scripted demo answers.
     "ai_endpoint": "https://olim-ai.abduraxmanov349.workers.dev, https://script.google.com/macros/s/AKfycbxkmkdz8ZMbgoyUpwtY8l7BI0Sy2NJQMWIqTeMwlzC1QqgeDgNm_WckNVfBjjjtVS0F/exec",
+    # Orders, bookings, receipts, admin login: Google Apps Script relay first (works in Uzbekistan), then the bot Worker.
+    "api_endpoint": "https://script.google.com/macros/s/AKfycbxkmkdz8ZMbgoyUpwtY8l7BI0Sy2NJQMWIqTeMwlzC1QqgeDgNm_WckNVfBjjjtVS0F/exec, https://olim-bot.abduraxmanov349.workers.dev",
     "instagram": "https://instagram.com/_olim_polvon",
     "yandex": "https://yandex.uz/maps/org/89114477009/",
     "rating": "5,0", "ratings": "1500+",
@@ -103,7 +105,7 @@ for cid, uz, ru, en in CATS:
                       "price": price, "unit": unit, "img": (MENU_IMG + sid + ".webp?v=" + str(int((ROOT / MENU_IMG / (sid + ".webp")).stat().st_mtime) % 100000)) if has_ph else None, "tags": tags})
     MENU.append({"id": cid, "uz": uz, "ru": ru, "en": en, "items": items})
 
-MENU_JSON = [{"id": it["id"], "key": it["ru"], "cat": c["id"], "catTitle": c["ru"], "name": it["ru"], "desc": it["d_ru"],
+MENU_JSON = [{"id": it["id"], "sid": it["sid"], "key": it["ru"], "cat": c["id"], "catTitle": c["ru"], "name": it["ru"], "desc": it["d_ru"],
               "weight": UNITS[it["unit"]][1], "price": it["price"], "tags": it["tags"], "img": (_small(it["img"].split("?")[0]) + "?" + it["img"].split("?")[1]) if it["img"] else None, "alt": it["uz"] + " " + it["en"]} for c in MENU for it in c["items"]]
 BY_RU = {it["ru"]: it for c in MENU for it in c["items"]}
 def dish(ru): return BY_RU[ru]
@@ -256,7 +258,7 @@ def head(page, title, desc, path, schemas, og_img="share.jpg", noindex=False, pr
     robots = '<meta name="robots" content="noindex, nofollow">' if noindex else '<meta name="robots" content="index, follow, max-image-preview:large">'
     pre = '<link rel="preload" as="image" href="assets/ph-logo.webp" fetchpriority="high">' + (f'<link rel="preload" as="image" href="{preload_img}" fetchpriority="high">' if preload_img else "")
     return f"""<!doctype html>
-<html lang="ru" class="no-js" data-page="{page}">
+<html lang="ru" class="no-js" data-page="{page}" data-api="{SITE['api_endpoint']}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -297,7 +299,7 @@ def header(active):
 <div class="admin-bar" role="region" aria-label="Панель администратора">
   <div class="wrap">
     <span class="admin-badge"><span class="dot"></span><span class="hide-xs">Режим администратора</span><span class="show-xs">Админ</span></span>
-    <span class="hide-sm" style="opacity:.75">Изменения видны только на этом устройстве (демо)</span>
+    <span class="hide-sm" style="opacity:.75">Заказы и брони — общие с ботом; меню и стоп-лист — на этом устройстве</span>
     <nav aria-label="Администрирование">
       <a href="admin.html">{ic("i-grid")}<span class="hide-sm">Панель</span></a>
       <a href="menu.html">{ic("i-edit")}<span class="hide-sm">Меню</span></a>
@@ -776,7 +778,8 @@ contact = head("contact",
           <svg class="check-draw" viewBox="0 0 72 72" aria-hidden="true"><circle cx="36" cy="36" r="34"/><path d="M23 37l9 9 17-19"/></svg>
           <h2>Заявка принята</h2>
           <p class="muted" data-success-text></p>
-          <p class="hint">Демо: заявка сохранена в админ-панели этого браузера. После запуска будет приходить администратору в Telegram.</p>
+          <p class="co-sync" data-booking-sync>Отправляем заявку…</p>
+          <p class="hint">Бронь платная: стоимость назовёт администратор, когда перезвонит. Статус заявки виден внизу слева на любой странице сайта.</p>
           <button class="btn btn--ghost" type="button" data-again>Новая заявка</button>
         </div>
       </div>
@@ -826,7 +829,7 @@ admin = head("admin", f"Панель администратора — {SITE['nam
             <div class="kpi"><span>Блюд в меню</span><b data-kpi="dishes">0</b></div>
             <div class="kpi"><span>В стоп-листе</span><b data-kpi="stop">0</b></div>
           </div>
-          <p class="muted">Это демо-панель: данные хранятся в этом браузере. В рабочей версии заявки, меню и стоп-лист будут общими для сайта и Telegram-бота (Cloudflare Workers + D1).</p>
+          <p class="muted">Заказы и брони хранятся на сервере (Cloudflare D1) и общие с Telegram-ботом: что вы меняете здесь, сотрудники видят в боте, и наоборот. Меню и стоп-лист пока хранятся в этом браузере.</p>
         </section>
         <section class="admin-panel" id="p-bookings" role="tabpanel" aria-labelledby="t-bookings" hidden>
           <h2>Заказы: доставка и навынос</h2>

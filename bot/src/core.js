@@ -183,7 +183,7 @@ export async function addReceipt(env, { id, kind, ref, file_id, data }) {
   if (data && data.length > 1_400_000) throw new Error("too big");
   const row = await env.DB.prepare("INSERT INTO receipts(id,kind,ref,file_id,data,status,created) VALUES(?,?,?,?,?,'wait',?) ON CONFLICT(id) DO NOTHING RETURNING *")
     .bind(rid, kind === "booking" ? "booking" : "order", ref, file_id || null, file_id ? null : data || null, now()).first();
-  if (!row) return { row: old, created: false };
+  if (!row) return { row: await env.DB.prepare("SELECT * FROM receipts WHERE id=?").bind(rid).first(), created: false };
   await env.DB.prepare(`UPDATE ${kind === "booking" ? "bookings" : "orders"} SET pay_status='sent', updated=? WHERE num=?`).bind(now(), ref).run();
   const fresh = kind === "booking" ? await getBooking(env, ref) : await getOrder(env, ref);
   const caption = `🧾 Чек к ${kind === "booking" ? "брони" : "заказу"} №${ref} · ${fresh.source === "bot" ? "бот" : "сайт"}\n👤 ${esc(fresh.name || "")} ${esc(fresh.phone || "")}\n💰 ${money(kind === "booking" ? fresh.fee : fresh.total)}`;

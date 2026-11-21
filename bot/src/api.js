@@ -75,6 +75,10 @@ export async function handleApi(env, req, ctx, path) {
       ctx.waitUntil(flush(env, r.ids));
       return out({ ok: true, dup: !r.created }, 200, h);
     }
+    if (route === "notes") { // promotions from the site admin, forwarded by Google Apps Script only
+      if (!viaGas) return out({ error: "forbidden" }, 403, h);
+      await kvSet(env, "notes", String(body.notes || "").slice(0, 1500)); return out({ ok: true }, 200, h);
+    }
     if (route === "config") return out({ ok: true, card: { number: await setting(env, "card"), owner: await setting(env, "card_owner") } }, 200, h);
 
     // ---- admin panel of the site

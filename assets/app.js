@@ -30,6 +30,160 @@
     setTimeout(() => { t.classList.add('is-out'); setTimeout(() => t.remove(), 220); }, 2600);
   }
 
+  /* ---------------- server link: orders, bookings, receipts are never lost ----------------
+     Every request has an id made here, so a repeat never creates a duplicate. Unsent requests wait in
+     localStorage (polvon_outbox) and are repeated until the server answers ok. First address: Google Apps
+     Script (works in Uzbekistan), then the bot Worker directly. */
+  const API = (root.dataset.api || '').split(/[\s,]+/).filter(Boolean);
+  const newId = p => p + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+  async function apiCall(route, payload) {
+    let last = { error: 'network' };
+    for (const ep of API) {
+      const gas = /script\.google/.test(ep);
+      try {
+        const ctl = new AbortController(), tm = setTimeout(() => ctl.abort(), gas ? 25000 : 9000);
+        const r = await fetch(gas ? ep : ep.replace(/\/$/, '') + '/api/' + route, { method: 'POST', redirect: 'follow', signal: ctl.signal,
+          headers: { 'Content-Type': gas ? 'text/plain;charset=utf-8' : 'application/json' }, body: JSON.stringify(gas ? { api: route, payload } : payload) });
+        clearTimeout(tm);
+        const j = await r.json(); const st = j._status || r.status;
+        if (j.ok) return j;
+        last = j;
+        if (st >= 400 && st < 500 && st !== 429 && st !== 403 && j.error !== 'relay not configured') return { ...j, final: true }; // the server said no: repeating won't help
+      } catch { last = { error: 'network' }; }
+    }
+    return last;
+  }
+  const WAIT = [3, 8, 20, 45, 90, 180, 300];
+  const sync = {
+    list: () => store.get('outbox', []),
+    busy: false,
+    put(item) { const l = sync.list().filter(x => x.key !== item.key); l.push({ tries: 0, next: 0, at: Date.now(), ...item }); store.set('outbox', l); sync.pump(); },
+    async pump() {
+      if (sync.busy || !API.length) return; sync.busy = true;
+      try {
+        for (const it of sync.list()) {
+          if (it.next > Date.now()) continue;
+          const j = await apiCall(it.route, it.payload);
+          const l = sync.list(), cur = l.find(x => x.key === it.key); if (!cur) continue;
+          if (j.ok || j.final) store.set('outbox', l.filter(x => x.key !== it.key));
+          else { cur.tries++; cur.next = Date.now() + WAIT[Math.min(cur.tries - 1, WAIT.length - 1)] * 1000; store.set('outbox', l); }
+          window.dispatchEvent(new CustomEvent('polvon-sync', { detail: { item: it, res: j, done: !!j.ok, failed: !!j.final } }));
+        }
+      } finally { sync.busy = false; }
+    },
+    pending: key => sync.list().some(x => x.key === key),
+  };
+  addEventListener('online', () => sync.pump());
+  setInterval(() => { if (sync.list().some(x => x.next <= Date.now())) sync.pump(); }, 4000);
+  setTimeout(() => sync.pump(), 800);
+  // what the guest is waiting for: orders and bookings sent from this browser
+  const track = {
+    list: () => store.get('track', []).filter(x => Date.now() - x.at < 36 * 3600e3),
+    add(kind, id, extra) { const l = track.list().filter(x => x.id !== id); l.unshift({ kind, id, at: Date.now(), ...extra }); store.set('track', l.slice(0, 8)); },
+    set(id, patch) { const l = track.list(); const x = l.find(y => y.id === id); if (x) Object.assign(x, patch); store.set('track', l); },
+  };
+  window.addEventListener('polvon-sync', e => {
+    const { item, res } = e.detail;
+    if ((item.route === 'order' || item.route === 'booking') && res.ok) track.set(item.payload.id, { num: res.num, status: res.status, card: res.card || undefined });
+    if ((item.route === 'order' || item.route === 'booking') && res.final) track.set(item.payload.id, { failed: res.error || 'error' });
+    if (item.route === 'receipt' && res.ok) track.set(item.payload.ref, { pay_status: 'sent' });
+  });
+
+  /* ---------------- status of my order / booking + card receipt ---------------- */
+  (() => {
+    const host = document.createElement('div'); host.className = 'trk'; host.setAttribute('aria-live', 'polite'); document.body.append(host);
+    const dlg = document.createElement('dialog'); dlg.className = 'checkout trk-dialog'; document.body.append(dlg);
+    let card = null, openId = '';
+    const FINAL = { order: ['done', 'cancelled'], booking: ['declined', 'cancelled', 'done'] };
+    const OST = { new: tt('Отправлен, ждёт подтверждения'), accepted: tt('Принят'), cooking: tt('Готовится'), courier: tt('В пути'), done: tt('Выполнен'), cancelled: tt('Отменён') };
+    const BST = { new: tt('Заявка отправлена'), confirmed: tt('Бронь подтверждена'), declined: tt('Бронь отклонена'), callback: tt('Администратор перезвонит'), cancelled: tt('Бронь отменена'), done: tt('Состоялась') };
+    const label = x => x.failed ? tt('Не отправлено — позвоните +998 95 343 43 43')
+      : !x.num ? (navigator.onLine === false ? tt('Нет интернета — отправим, как только появится') : tt('Отправляем…'))
+      : (x.kind === 'order' ? OST : BST)[x.status] || x.status;
+    const needPay = x => x.num && ((x.kind === 'order' && x.pay === 'card') || (x.kind === 'booking' && x.fee > 0)) && ['wait', 'no', '', undefined].includes(x.pay_status) && !FINAL[x.kind].includes(x.status);
+    const payHtml = x => {
+      if (!x.num) return '';
+      if (x.pay_status === 'sent') return `<p class="trk-pay is-wait">${esc(tt('Чек на проверке — сообщим, когда сотрудник подтвердит оплату.'))}</p>`;
+      if (x.pay_status === 'ok') return `<p class="trk-pay is-ok">✓ ${esc(tt('Оплата подтверждена'))}</p>`;
+      if (!needPay(x)) return '';
+      const sum = x.kind === 'booking' ? x.fee : x.total;
+      return `<div class="trk-pay">${x.pay_status === 'no' ? `<p class="trk-warn">${esc(tt('Оплату не нашли. Проверьте перевод и загрузите чек ещё раз или позвоните.'))}</p>` : ''}
+        <p>${esc(tt('Переведите'))} <b>${sum ? fmt(sum) : ''}</b> ${esc(tt('на карту'))}:</p>
+        <p class="trk-card"><code>${esc(card?.number || '…')}</code>${card?.owner ? ` <small>${esc(card.owner)}</small>` : ''} <button type="button" class="mini-btn" data-copy="${esc(card?.number || '')}">${esc(tt('Копировать'))}</button></p>
+        <label class="btn trk-up"><input type="file" accept="image/*" data-receipt="${esc(x.id)}" hidden>${esc(tt('Загрузить скриншот чека'))}</label></div>`;
+    };
+    const steps = x => {
+      if (x.kind !== 'order' || !x.num || x.status === 'cancelled') return '';
+      const flow = x.type === 'delivery' ? ['accepted', 'cooking', 'courier', 'done'] : ['accepted', 'cooking', 'done'];
+      const at = flow.indexOf(x.status);
+      return `<ol class="trk-steps">${flow.map((k, i) => `<li class="${i <= at ? 'is-on' : ''}">${esc(k === 'done' && x.type !== 'delivery' ? tt('Готов') : OST[k])}</li>`).join('')}</ol>`;
+    };
+    function draw() {
+      const L = track.list().filter(x => !x.hidden);
+      host.innerHTML = L.slice(0, 3).map(x => `<button type="button" class="trk-chip ${x.failed ? 'is-bad' : !x.num ? 'is-wait' : FINAL[x.kind].includes(x.status) ? 'is-done' : 'is-live'}${needPay(x) ? ' is-pay' : ''}" data-trk="${esc(x.id)}">
+        <span class="trk-dot" aria-hidden="true"></span><span>${x.kind === 'order' ? esc(tt('Заказ')) : esc(tt('Бронь'))}${x.num ? ' №' + x.num : ''} · ${esc(label(x))}${needPay(x) ? ' · ' + esc(tt('ждём чек')) : ''}</span></button>`).join('');
+      // the same state inside the "order received" screen of the checkout
+      L.forEach(x => {
+        $$(`[data-sync="${CSS.escape(x.id)}"]`).forEach(el => { el.textContent = x.num ? `№${x.num} · ${label(x)}` : label(x); el.classList.toggle('is-ok', !!x.num); el.classList.toggle('is-bad', !!x.failed); });
+        $$(`[data-pay="${CSS.escape(x.id)}"]`).forEach(el => { el.innerHTML = payHtml(x) || (x.num ? '' : `<p class="co-hint">${esc(tt('Номер карты появится, как только заказ дойдёт до ресторана.'))}</p>`); });
+      });
+      if (dlg.open && openId) openSheet(openId);
+    }
+    function openSheet(id) {
+      const x = track.list().find(y => y.id === id); if (!x) { dlg.close(); return; }
+      openId = id;
+      dlg.innerHTML = `<div class="co-card co-done"><button type="button" class="co-x" data-close aria-label="${esc(tt('Закрыть'))}"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+        <h2>${x.kind === 'order' ? esc(tt('Заказ')) : esc(tt('Бронь'))}${x.num ? ' №' + x.num : ''}</h2>
+        <p class="trk-big">${esc(label(x))}</p>${x.kind === 'booking' && x.date ? `<p class="co-hint">${esc(x.date)} · ${esc(x.time || '')}${x.fee ? ' · ' + esc(tt('стоимость брони')) + ' ' + fmt(x.fee) : ''}</p>` : ''}
+        ${steps(x)}${payHtml(x)}
+        <div class="co-done-actions"><a class="btn btn--ghost" href="tel:+998953434343">${esc(tt('Позвонить'))}</a><a class="btn btn--ghost" href="https://t.me/Olimpolvon_bot" target="_blank" rel="noopener">Telegram</a>${FINAL[x.kind].includes(x.status) || x.failed ? `<button type="button" class="mini-btn" data-hide="${esc(x.id)}">${esc(tt('Скрыть'))}</button>` : ''}</div></div>`;
+      if (!dlg.open) dlg.showModal();
+    }
+    host.addEventListener('click', e => { const b = e.target.closest('[data-trk]'); if (b) openSheet(b.dataset.trk); });
+    dlg.addEventListener('click', e => {
+      if (e.target === dlg || e.target.closest('[data-close]')) { dlg.close(); openId = ''; return; }
+      const h = e.target.closest('[data-hide]'); if (h) { track.set(h.dataset.hide, { hidden: true }); dlg.close(); openId = ''; draw(); }
+    });
+    document.addEventListener('click', e => { const c = e.target.closest('[data-copy]'); if (c && c.dataset.copy) navigator.clipboard?.writeText(c.dataset.copy.replace(/\s/g, '')).then(() => toast(tt('Номер карты скопирован'))); });
+    // receipt: shrink to a light JPEG in the browser, then send through the same never-lost outbox
+    async function shrink(file) {
+      const url = URL.createObjectURL(file);
+      try {
+        const img = await new Promise((ok, no) => { const i = new Image(); i.onload = () => ok(i); i.onerror = no; i.src = url; });
+        const k = Math.min(1, 1400 / Math.max(img.naturalWidth, img.naturalHeight));
+        const c = document.createElement('canvas'); c.width = Math.round(img.naturalWidth * k); c.height = Math.round(img.naturalHeight * k);
+        c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+        let q = .78, d = c.toDataURL('image/jpeg', q); while (d.length > 700000 && q > .4) { q -= .12; d = c.toDataURL('image/jpeg', q); }
+        return d;
+      } finally { URL.revokeObjectURL(url); }
+    }
+    document.addEventListener('change', async e => {
+      const inp = e.target.closest('[data-receipt]'); if (!inp || !inp.files?.[0]) return;
+      const x = track.list().find(y => y.id === inp.dataset.receipt); if (!x) return;
+      let data; try { data = await shrink(inp.files[0]); } catch { toast(tt('Не получилось открыть картинку. Сделайте скриншот и попробуйте ещё раз.')); return; }
+      sync.put({ key: 'receipt:' + x.id + ':' + Date.now(), route: 'receipt', payload: { id: newId('r'), kind: x.kind, ref: x.id, data } });
+      track.set(x.id, { pay_status: 'sent' }); toast(tt('Чек отправляется сотруднику')); draw();
+    });
+    // ask the server what changed (every 30 s while the page is open)
+    async function poll() {
+      const L = track.list().filter(x => x.num && !x.hidden && !(FINAL[x.kind].includes(x.status) && x.pay_status !== 'sent'));
+      if (!L.length || document.visibilityState !== 'visible') return;
+      const j = await apiCall('status', { ids: L.map(x => ({ kind: x.kind, id: x.id })) });
+      if (!j.ok) return;
+      card = j.card || card;
+      for (const it of j.items) {
+        const old = track.list().find(x => x.id === it.id);
+        if (old && old.status !== it.status && old.status) toast(`${it.kind === 'order' ? tt('Заказ') : tt('Бронь')} №${it.num}: ${(it.kind === 'order' ? OST : BST)[it.status] || it.status}`);
+        track.set(it.id, { status: it.status, pay_status: it.pay_status, fee: it.fee, total: it.total ?? old?.total, pay: it.pay ?? old?.pay, type: it.type ?? old?.type });
+      }
+      draw();
+    }
+    window.addEventListener('polvon-sync', e => { if (e.detail.res?.card) card = e.detail.res.card; draw(); if (e.detail.done) setTimeout(poll, 500); });
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') poll(); });
+    setInterval(poll, 30000); setTimeout(poll, 1500); draw();
+    window.POLVON_TRACK = { draw, poll };
+  })();
+
   /* ---------------- menu data (+ admin overrides) ---------------- */
   const BASE_MENU = (() => { try { return JSON.parse($('#menu-data').textContent); } catch { return []; } })();
   const CAT_TITLES = Object.fromEntries(BASE_MENU.map(d => [d.cat, d.catTitle]));
@@ -67,22 +221,16 @@
   }
 
   /* ---------------- admin mode ---------------- */
-  // Demo only: a client-side password is not security. The real panel checks it on the server (Cloudflare Worker).
-  async function checkPass(p) {
-    if (window.crypto?.subtle) {
-      const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(p));
-      const hex = Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
-      return hex === ADMIN_SHA256;
-    }
-    return false; // no Web Crypto: refuse instead of comparing in plain text
-  }
-  const ADMIN_SHA256 = 'b5dd70130a443b64711dc3a210b238d7b272b49324fd8da5e798887f8543943e';
+  // The password is checked by the server (bot Worker, secret ADMIN_PASS); the browser keeps only a session token.
   const isAdmin = () => root.classList.contains('is-admin');
   function setAdmin(on) {
     try { on ? sessionStorage.setItem('polvon_admin', '1') : sessionStorage.removeItem('polvon_admin'); } catch {}
     root.classList.toggle('is-admin', on);
     document.dispatchEvent(new CustomEvent('admin-change', { detail: on }));
   }
+  const adminToken = () => { const t = store.get('admin_token', null); return t && t.exp > Date.now() ? t.token : ''; };
+  if (adminToken() && !isAdmin()) setAdmin(true);
+  if (isAdmin() && !adminToken()) setAdmin(false);
   const modal = $('#staff-modal');
   $$('[data-staff-login]').forEach(b => b.addEventListener('click', () => {
     if (isAdmin()) { location.href = 'admin.html'; return; }
@@ -93,17 +241,18 @@
   const loginForm = $('[data-login-form]');
   async function handleLogin(form, input, after) {
     const err = form.querySelector('.err');
-    if (await checkPass(input.value)) {
-      setAdmin(true); err.textContent = ''; input.value = '';
+    const fail = text => { err.textContent = text; form.classList.remove('shake'); void form.offsetWidth; form.classList.add('shake'); input.select(); };
+    if (!input.value) return fail(tt('Введите пароль.'));
+    err.textContent = tt('Проверяем…');
+    const j = await apiCall('admin/login', { password: input.value });
+    if (j.ok) {
+      store.set('admin_token', { token: j.token, exp: j.exp }); setAdmin(true); err.textContent = ''; input.value = '';
       after?.(); toast(tt('Режим администратора включён'));
-    } else {
-      err.textContent = input.value ? tt('Неверный пароль. Попробуйте ещё раз.') : tt('Введите пароль.');
-      form.classList.remove('shake'); void form.offsetWidth; form.classList.add('shake');
-      input.select();
-    }
+    } else fail(j.error === 'wrong password' ? tt('Неверный пароль. Попробуйте ещё раз.') : /too many/.test(j.error || '') ? tt('Слишком много попыток. Подождите 10 минут.') : tt('Сервер недоступен. Проверьте интернет и попробуйте ещё раз.'));
   }
   loginForm?.addEventListener('submit', e => { e.preventDefault(); handleLogin(loginForm, $('#staff-pass'), () => modal.close()); });
   $$('[data-logout]').forEach(b => b.addEventListener('click', () => {
+    const tok = adminToken(); if (tok) apiCall('admin/logout', { token: tok }); store.del('admin_token');
     setAdmin(false); toast(tt('Вы вышли из режима администратора'));
     if (root.dataset.page === 'admin') setTimeout(() => location.href = 'index.html', 500);
   }));
@@ -600,6 +749,12 @@
     liveWatch = navigator.geolocation.watchPosition(p => {
       const list = store.get('orders', []); const o = list.find(x => x.id === orderId); if (!o) return;
       o.lat = p.coords.latitude.toFixed(6); o.lon = p.coords.longitude.toFixed(6); o.liveAt = Date.now(); store.set('orders', list);
+      // to the courier: at most every 15 s, only after the server has the order; the latest point wins, no queue
+      const tr = track.list().find(x => x.id === orderId);
+      if (tr?.num && Date.now() - (startLive.sent || 0) > 15000) {
+        startLive.sent = Date.now();
+        apiCall('live', { id: orderId, lat: o.lat, lon: o.lon }).then(j => { if (j.stop) { stopLive(); const st = co.querySelector('[data-live-status]'); if (st) st.textContent = tt('Заказ доставлен — трансляция остановлена'); } });
+      }
       const st = co.querySelector('[data-live-status]'); if (st) st.textContent = tt('Трансляция идёт') + ' · ' + new Date().toLocaleTimeString(LOCALE, { hour: '2-digit', minute: '2-digit', second: '2-digit' });
     }, () => {}, { enableHighAccuracy: true, maximumAge: 5000 });
   }
@@ -645,8 +800,12 @@
     if (bad) { bad.focus(); toast(tt('Проверьте выделенные поля')); return; }
     const v = { ...coDraft, ...Object.fromEntries(new FormData(f)) };
     const geo = coMode === 'delivery' && v.lat && v.ok === '1';
-    const o = { id: Date.now(), type: coMode, table: coMode === 'table' ? TABLE : '', name: (v.name || '').trim(), phone: (v.phone || '').trim(), address: (v.address || '').trim(), lat: geo ? v.lat : '', lon: geo ? v.lon : '', live: geo && v.live === '1', when: coMode === 'table' ? tt('сейчас') : (v.when === 'time' && v.time ? v.time : tt('как можно скорее')), pay: coMode === 'delivery' ? v.pay || 'cash' : '', note: (v.note || '').trim(), items: orderText(), total: cart.total(), status: 'new' };
-    const list = store.get('orders', []); list.unshift(o); store.set('orders', list);
+    const o = { id: newId('w'), type: coMode, table: coMode === 'table' ? TABLE : '', name: (v.name || '').trim(), phone: (v.phone || '').trim(), address: (v.address || '').trim(), lat: geo ? v.lat : '', lon: geo ? v.lon : '', live: geo && v.live === '1', when: coMode === 'table' ? tt('сейчас') : (v.when === 'time' && v.time ? v.time : tt('как можно скорее')), pay: coMode === 'delivery' ? v.pay || 'cash' : '', note: (v.note || '').trim(), items: orderText(), total: cart.total(), status: 'new' };
+    const list = store.get('orders', []); list.unshift(o); store.set('orders', list.slice(0, 30));
+    // to the server (repeats until it answers ok); prices are checked there again
+    sync.put({ key: 'order:' + o.id, route: 'order', payload: { id: o.id, type: o.type, table: o.table, name: o.name, phone: o.phone, address: o.address, lat: o.lat, lon: o.lon, live: o.live,
+      when: o.when, pay: o.pay === 'transfer' ? 'card' : o.pay, note: o.note, lang: LANG, items: cart.lines().map(l => ({ id: l.d.sid || l.d.id, q: l.q, name: l.d.name, price: l.d.price })) } });
+    track.add('order', o.id, { total: o.total, pay: o.pay === 'transfer' ? 'card' : o.pay, type: o.type });
     if (coMode !== 'table') store.set('guest', { name: o.name, phone: o.phone, address: o.address || coSaved().address || '' });
     const kind = { delivery: tt('Доставка'), pickup: tt('Навынос'), table: tt('Стол') + ' №' + TABLE }[coMode];
     const text = `${kind}: ${o.items}. ${tt('Итого')}: ${fmt(o.total)}.` + (coMode === 'table' ? (o.note ? ' ' + o.note : '') : ` ${o.name}, ${o.phone}${o.address ? ', ' + o.address : ''}${geo ? ', ' + ylink(o.lat, o.lon) : ''}. ${tt('Когда')}: ${o.when}${o.note ? '. ' + o.note : ''}`);
@@ -658,11 +817,14 @@
       : `<div class="co-card co-done">${X}${check}<h2 id="co-title" tabindex="-1">${esc(tt('Заказ принят!'))}</h2>
       <p>${esc(tt('Администратор перезвонит в течение нескольких минут, подтвердит заказ и назовёт время.'))}</p>
       ${o.live ? `<div class="co-live-box"><span class="co-live-dot" aria-hidden="true"></span><div><b data-live-status>${esc(tt('Включаем трансляцию…'))}</b><small>${esc(tt('Не закрывайте эту страницу и не выключайте интернет, пока курьер в пути.'))}</small></div><button type="button" class="mini-btn" data-live-stop>${esc(tt('Остановить'))}</button></div>` : ''}
+      <p class="co-sync" data-sync="${esc(o.id)}">${esc(tt('Отправляем заказ…'))}</p>
+      ${o.pay === 'transfer' ? `<div class="co-pay" data-pay="${esc(o.id)}"></div>` : ''}
       <p class="co-summary">${esc(text)}</p>
       <div class="co-done-actions"><a class="btn" href="https://t.me/Olimpolvon_bot" target="_blank" rel="noopener" data-co-tg>${esc(tt('Продублировать в Telegram'))}</a><a class="btn btn--ghost" href="tel:+998909167774">${esc(tt('Позвонить'))}</a></div></div>`;
     co.querySelector('[data-co-tg]')?.addEventListener('click', () => { navigator.clipboard?.writeText(text).then(() => toast(tt('Заказ скопирован — вставьте его в Telegram-бот'))).catch(() => {}); });
     if (o.live) startLive(o.id);
     co.querySelector('h2').focus();
+    window.POLVON_TRACK?.draw();
   });
   window.addEventListener('polvon-cart', () => { syncMenuAdds(); renderOrderBar(); });
   window.addEventListener('storage', e => { if (e.key === 'polvon_cart') { renderCartBar(); syncMenuAdds(); renderOrderBar(); } });
@@ -1205,8 +1367,12 @@
       if (ok && !time.value) { ok = false; const f = time.closest('.field'); f.toggleAttribute('data-invalid', true); f.querySelector('.err').textContent = tt('Выберите время'); }
       else time.closest('.field').toggleAttribute('data-invalid', false);
       if (!ok) return;
-      const b = { id: Date.now(), name: booking.elements.name.value.trim(), phone: booking.elements.phone.value.trim(), date: date.value, time: booking.elements.time.value, guests, zone: booking.elements.zone.value, note: booking.elements.note.value.trim(), status: 'new' };
-      const list = store.get('bookings', []); list.unshift(b); store.set('bookings', list);
+      const b = { id: newId('b'), name: booking.elements.name.value.trim(), phone: booking.elements.phone.value.trim(), date: date.value, time: booking.elements.time.value, guests, zone: booking.elements.zone.value, note: booking.elements.note.value.trim(), status: 'new' };
+      const list = store.get('bookings', []); list.unshift(b); store.set('bookings', list.slice(0, 30));
+      sync.put({ key: 'booking:' + b.id, route: 'booking', payload: { id: b.id, name: b.name, phone: b.phone, date: b.date, time: b.time, guests: b.guests, zone: b.zone, note: b.note, lang: LANG } });
+      track.add('booking', b.id, { date: b.date, time: b.time });
+      const bs = $('[data-booking-sync]'); if (bs) bs.dataset.sync = b.id;
+      window.POLVON_TRACK?.draw();
       const dd = new Date(b.date + 'T00:00'); const d = `${dd.getDate()} ${MO[dd.getMonth()]} (${WD[dd.getDay()]})`;
       $('[data-success-text]').textContent = tt('{name}, ждём вас {date} в {time}, гостей: {n}.').replace('{name}', b.name).replace('{date}', d).replace('{time}', b.time).replace('{n}', b.guests);
       booking.hidden = true; success.classList.add('is-on'); success.querySelector('h2').setAttribute('tabindex', '-1'); success.querySelector('h2').focus();
@@ -1233,44 +1399,70 @@
 
     function renderKpis() {
       const m = getMenu();
-      $('[data-kpi=bookings]').textContent = store.get('bookings', []).length;
       $('[data-kpi=dishes]').textContent = m.length;
       $('[data-kpi=stop]').textContent = m.filter(d => d.stop).length;
     }
+    // ---- orders & bookings from the server: the same list on every device and in the Telegram bot
+    let srv = { orders: [], bookings: [], receipts: [] }, srvAt = 0;
+    const OST = { new: tt('Новый'), accepted: tt('Принят'), cooking: tt('Готовится'), courier: tt('У курьера'), done: tt('Выполнен'), cancelled: tt('Отменён') };
+    const BST = { new: tt('Новая'), confirmed: tt('Подтверждена'), declined: tt('Отклонена'), callback: tt('Перезвонить'), cancelled: tt('Отменена'), done: tt('Состоялась') };
+    const PST = { wait: tt('ждём чек'), sent: tt('чек на проверке'), ok: tt('оплачено'), no: tt('оплаты нет') };
+    const when = t => new Date(t).toLocaleString(LOCALE, { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+    async function loadSrv(quiet) {
+      const tok = adminToken(); if (!tok) return;
+      const j = await apiCall('admin/list', { token: tok, days: 3 });
+      if (j.error === 'login') { store.del('admin_token'); setAdmin(false); toast(tt('Сессия истекла — войдите снова')); return; }
+      if (!j.ok) { if (!quiet) toast(tt('Сервер недоступен — показаны последние данные')); return; }
+      srv = j; srvAt = Date.now(); renderOrders(); renderBookings(); renderKpis();
+    }
+    const pill = (txt, ok) => `<span class="status-pill ${ok ? 'status-pill--ok' : ''}">${esc(txt)}</span>`;
+    const act = (label, attrs, cls = '') => `<button class="mini-btn ${cls}" ${attrs}>${esc(label)}</button>`;
     function renderBookings() {
-      const host = $('[data-bookings]'); const list = store.get('bookings', []);
-      if (!list.length) { host.innerHTML = tt('<div class="empty-state">Заявок пока нет. Отправьте тестовую с <a href="contact.html#booking">страницы контактов</a>.</div>'); return; }
-      host.innerHTML = `<table class="data"><thead><tr><th>Гость</th><th>Телефон</th><th>Когда</th><th>Гостей</th><th>Зона</th><th>Пожелания</th><th>Статус</th><th></th></tr></thead><tbody>${list.map(b => `
-        <tr data-id="${b.id}"><td><b>${esc(b.name)}</b></td><td><a href="tel:${esc(b.phone)}">${esc(b.phone)}</a></td><td class="num" style="white-space:nowrap">${esc(b.date)} ${esc(b.time)}</td><td class="num">${b.guests}</td><td>${esc(b.zone)}</td><td>${esc(b.note || '—')}</td>
-        <td><span class="status-pill ${b.status === 'ok' ? 'status-pill--ok' : ''}">${b.status === 'ok' ? tt('Подтверждена') : tt('Новая')}</span></td>
-        <td><div class="row-actions">${b.status === 'ok' ? '' : tt('<button class="mini-btn" data-ok>Подтвердить</button>')}<button class="mini-btn" data-del>Удалить</button></div></td></tr>`).join('')}</tbody></table>`;
+      const host = $('[data-bookings]'); const list = srv.bookings;
+      $('[data-kpi=bookings]').textContent = list.filter(b => !['declined', 'cancelled'].includes(b.status)).length;
+      if (!list.length) { host.innerHTML = `<div class="empty-state">${srvAt ? esc(tt('Заявок пока нет.')) : esc(tt('Загружаем с сервера…'))}</div>`; return; }
+      host.innerHTML = `<table class="data"><thead><tr><th>№</th><th>${esc(tt('Гость'))}</th><th>${esc(tt('Когда'))}</th><th>${esc(tt('Гостей'))}</th><th>${esc(tt('Зона'))}</th><th>${esc(tt('Пожелания'))}</th><th>${esc(tt('Стоимость'))}</th><th>${esc(tt('Статус'))}</th><th></th></tr></thead><tbody>${list.map(b => `
+        <tr data-kind="booking" data-num="${b.num}"><td class="num">${b.num}${b.test ? ' 🧪' : ''}<br><small class="muted">${b.source === 'bot' ? 'бот' : 'сайт'}</small></td><td><b>${esc(b.name)}</b><br><a href="tel:${esc(b.phone)}">${esc(b.phone)}</a></td><td class="num" style="white-space:nowrap">${esc(b.day)} ${esc(b.time)}</td><td class="num">${b.guests}</td><td>${esc(b.zone || '—')}</td><td>${esc(b.note || '—')}</td>
+        <td>${b.fee ? fmt(b.fee) : '—'}${b.pay_status ? `<br><small>${esc(PST[b.pay_status] || '')}</small>` : ''}<div class="row-actions"><input class="fee-in" type="number" step="10000" min="0" placeholder="${esc(tt('сумма'))}" aria-label="${esc(tt('Стоимость брони'))}">${act('OK', 'data-fee')}</div></td>
+        <td>${pill(BST[b.status] || b.status, b.status === 'confirmed' || b.status === 'done')}${b.staff_name ? `<br><small class="muted">${esc(b.staff_name)}</small>` : ''}</td>
+        <td><div class="row-actions">${['new', 'callback'].includes(b.status) ? act(tt('Подтвердить'), 'data-st="confirmed"') + act(tt('Отклонить'), 'data-st="declined" data-twice') : ''}${b.status === 'new' ? act(tt('Перезвоню'), 'data-st="callback"') : ''}${b.status === 'confirmed' ? act(tt('Состоялась'), 'data-st="done"') + act(tt('Отменить'), 'data-st="cancelled" data-twice') : ''}${['sent', 'wait', 'no'].includes(b.pay_status) ? act(tt('Чек'), 'data-rc') + act(tt('Оплата ✓'), 'data-pay="1"') + act(tt('Нет оплаты'), 'data-pay="0"') : ''}</div></td></tr>`).join('')}</tbody></table>`;
     }
     function renderOrders() {
-      const host = $('[data-orders]'); if (!host) return; const list = store.get('orders', []);
-      const k = $('[data-kpi=orders]'); if (k) k.textContent = list.length;
-      if (!list.length) { host.innerHTML = `<div class="empty-state">${esc(tt('Заказов пока нет. Добавьте блюда кнопкой «+» в меню и оформите доставку.'))}</div>`; return; }
-      const TYPE = { delivery: tt('Доставка'), pickup: tt('Навынос'), table: tt('Стол') }, PAY = { cash: tt('Наличными'), transfer: tt('Переводом') };
-      host.innerHTML = `<table class="data"><thead><tr><th>${esc(tt('Тип'))}</th><th>${esc(tt('Гость'))}</th><th>${esc(tt('Заказ'))}</th><th>${esc(tt('Сумма'))}</th><th>${esc(tt('Адрес и время'))}</th><th>${esc(tt('Статус'))}</th><th></th></tr></thead><tbody>${list.map(o => `
-        <tr data-id="${o.id}"><td><span class="type-pill type-pill--${o.type}">${esc(TYPE[o.type] || o.type)}${o.table ? ' №' + esc(o.table) : ''}</span></td><td>${o.phone ? `<b>${esc(o.name)}</b><br><a href="tel:${esc(o.phone)}">${esc(o.phone)}</a>` : '—'}</td><td>${esc(o.items)}${o.note ? `<br><small class="muted">${esc(o.note)}</small>` : ''}</td><td class="num" style="white-space:nowrap">${fmt(o.total)}${o.pay ? `<br><small class="muted">${esc(PAY[o.pay] || '')}</small>` : ''}</td><td>${esc(o.address || (o.lat ? '' : '—'))}${o.lat ? `${o.address ? '<br>' : ''}<a class="geo-link" href="https://yandex.uz/maps/?pt=${o.lon},${o.lat}&z=17&l=map" target="_blank" rel="noopener">📍 ${esc(tt('На карте'))}</a>${o.live ? ` <span class="live-pill">${esc(tt('онлайн'))}</span>` : ''}` : ''}<br><small class="muted">${esc(o.when)}</small></td>
-        <td><span class="status-pill ${o.status === 'ok' ? 'status-pill--ok' : ''}">${o.status === 'ok' ? esc(tt('Принят')) : esc(tt('Новый'))}</span></td>
-        <td><div class="row-actions">${o.status === 'ok' ? '' : `<button class="mini-btn" data-ook>${esc(tt('Принять'))}</button>`}<button class="mini-btn" data-odel>${esc(tt('Удалить'))}</button></div></td></tr>`).join('')}</tbody></table>`;
+      const host = $('[data-orders]'); if (!host) return; const list = srv.orders;
+      const k = $('[data-kpi=orders]'); if (k) k.textContent = list.filter(o => !['done', 'cancelled'].includes(o.status)).length;
+      if (!list.length) { host.innerHTML = `<div class="empty-state">${srvAt ? esc(tt('Заказов пока нет. Добавьте блюда кнопкой «+» в меню и оформите доставку.')) : esc(tt('Загружаем с сервера…'))}</div>`; return; }
+      const TYPE = { delivery: tt('Доставка'), pickup: tt('Навынос'), table: tt('Стол') };
+      const next = o => o.status === 'new' ? act(tt('Принять'), 'data-st="accepted"') : o.status === 'accepted' ? act(tt('Готовится'), 'data-st="cooking"') : o.status === 'cooking' ? (o.type === 'delivery' ? act(tt('Курьеру'), 'data-st="courier"') : act(tt('Выполнен'), 'data-st="done"')) : o.status === 'courier' ? act(tt('Доставлен'), 'data-st="done"') : '';
+      host.innerHTML = `<table class="data"><thead><tr><th>№</th><th>${esc(tt('Тип'))}</th><th>${esc(tt('Гость'))}</th><th>${esc(tt('Заказ'))}</th><th>${esc(tt('Сумма'))}</th><th>${esc(tt('Адрес и время'))}</th><th>${esc(tt('Статус'))}</th><th></th></tr></thead><tbody>${list.map(o => `
+        <tr data-kind="order" data-num="${o.num}"><td class="num">${o.num}${o.test ? ' 🧪' : ''}<br><small class="muted">${when(o.created)}</small></td><td><span class="type-pill type-pill--${o.type}">${esc(TYPE[o.type] || o.type)}${o.table_no ? ' №' + esc(o.table_no) : ''}</span><br><small class="muted">${o.source === 'bot' ? 'бот' : 'сайт'}</small></td>
+        <td>${o.phone ? `<b>${esc(o.name)}</b><br><a href="tel:${esc(o.phone)}">${esc(o.phone)}</a>` : '—'}</td><td>${o.items.map(l => `${esc(l.n)} ×${l.q}`).join(', ')}${o.note ? `<br><i>${esc(o.note)}</i>` : ''}</td>
+        <td class="num">${fmt(o.total)}<br><small>${o.pay === 'card' ? esc(tt('Переводом')) + (o.pay_status ? ' · ' + esc(PST[o.pay_status] || '') : '') : o.pay === 'cash' ? esc(tt('Наличными')) : ''}</small></td>
+        <td>${esc(o.address || '')}${o.lat ? ` <a href="https://yandex.uz/maps/?pt=${o.lon},${o.lat}&z=17&l=map" target="_blank" rel="noopener">${esc(tt('карта'))}</a>${o.live && o.live_at && Date.now() - o.live_at < 120000 ? ' <span class="live-pill">live</span>' : ''}` : ''}${o.type !== 'table' ? `<br><small>${esc(o.when_txt || '')}</small>` : ''}</td>
+        <td>${pill(OST[o.status] || o.status, o.status === 'done')}${o.staff_name ? `<br><small class="muted">${esc(o.staff_name)}</small>` : ''}</td>
+        <td><div class="row-actions">${next(o)}${['done', 'cancelled'].includes(o.status) ? '' : act(tt('Отменить'), 'data-st="cancel" data-twice')}${o.pay === 'card' && ['sent', 'wait', 'no'].includes(o.pay_status) ? act(tt('Чек'), 'data-rc') + act(tt('Оплата ✓'), 'data-pay="1"') + act(tt('Нет оплаты'), 'data-pay="0"') : ''}</div></td></tr>`).join('')}</tbody></table>`;
     }
-    $('[data-orders]')?.addEventListener('click', e => {
-      const tr = e.target.closest('tr'); if (!tr) return; const id = Number(tr.dataset.id);
-      let list = store.get('orders', []);
-      if (e.target.closest('[data-ook]')) { list = list.map(o => o.id === id ? { ...o, status: 'ok' } : o); toast(tt('Заказ принят')); }
-      else if (e.target.closest('[data-odel]')) { list = list.filter(o => o.id !== id); toast(tt('Заказ удалён')); }
-      else return;
-      store.set('orders', list); renderOrders();
-    });
-    $('[data-bookings]')?.addEventListener('click', e => {
-      const tr = e.target.closest('tr'); if (!tr) return; const id = Number(tr.dataset.id);
-      let list = store.get('bookings', []);
-      if (e.target.closest('[data-ok]')) { list = list.map(b => b.id === id ? { ...b, status: 'ok' } : b); toast(tt('Бронь подтверждена')); }
-      else if (e.target.closest('[data-del]')) { list = list.filter(b => b.id !== id); toast(tt('Заявка удалена')); }
-      else return;
-      store.set('bookings', list); renderBookings(); renderKpis();
-    });
+    async function adminAct(e) {
+      const bt = e.target.closest('button'); const tr = e.target.closest('tr[data-num]'); if (!bt || !tr) return;
+      if (bt.hasAttribute('data-twice') && !bt.dataset.armed) { bt.dataset.armed = '1'; bt.textContent = tt('Точно?'); setTimeout(() => { delete bt.dataset.armed; renderOrders(); renderBookings(); }, 3000); return; }
+      const kind = tr.dataset.kind, num = +tr.dataset.num, body = { token: adminToken(), kind, num };
+      if (bt.hasAttribute('data-rc')) {
+        const rc = srv.receipts.filter(r => r.kind === kind && r.ref === num).pop(); if (!rc) { toast(tt('Чек ещё не загружен')); return; }
+        toast(tt('Открываем чек…')); const j = await apiCall('admin/receipt', { token: adminToken(), num: rc.num });
+        if (!j.ok) { toast(tt('Не удалось открыть чек')); return; }
+        const d = document.createElement('dialog'); d.className = 'checkout'; d.innerHTML = `<div class="co-card co-done"><button type="button" class="co-x" aria-label="${esc(tt('Закрыть'))}">×</button><img src="${j.data}" alt="${esc(tt('Чек'))}" style="max-width:100%;border-radius:12px"></div>`;
+        document.body.append(d); d.addEventListener('click', ev => { if (ev.target === d || ev.target.closest('.co-x')) { d.close(); d.remove(); } }); d.showModal(); return;
+      }
+      if (bt.hasAttribute('data-fee')) { const v = parseInt(tr.querySelector('.fee-in').value, 10); if (!v) { tr.querySelector('.fee-in').focus(); return; } body.fee = v < 1000 ? v * 1000 : v; }
+      else if (bt.dataset.pay != null) body.pay = bt.dataset.pay === '1';
+      else if (bt.dataset.st) body.status = bt.dataset.st; else return;
+      bt.disabled = true;
+      const j = await apiCall('admin/set', body);
+      if (j.ok) { toast(tt('Сохранено — гость и сотрудники в Telegram уже видят изменение')); loadSrv(true); }
+      else { bt.disabled = false; toast(j.error === 'closed' ? tt('Заказ уже закрыт') : tt('Не сохранилось: ') + (j.error || tt('нет связи'))); if (j.error === 'login') { store.del('admin_token'); setAdmin(false); } }
+    }
+    $('[data-orders]')?.addEventListener('click', adminAct);
+    $('[data-bookings]')?.addEventListener('click', adminAct);
+    setInterval(() => { if (isAdmin() && document.visibilityState === 'visible') loadSrv(true); }, 20000);
     function renderMenuEditor() {
       const host = $('[data-menu-editor]'); const m = getMenu(); let cat = '';
       host.innerHTML = `<table class="data"><thead><tr><th>Блюдо</th><th>Выход</th><th>Цена, сум</th><th>Хит</th><th>Стоп-лист</th></tr></thead><tbody>${m.map(d => {
@@ -1319,7 +1511,7 @@
             .catch(() => (gas ? 'Google: ' : 'Cloudflare: ') + tt('не открывается из этой сети'));
         })).then(lines => st.textContent = lines.join('  |  ')); } });
     function renderAll() {
-      renderKpis(); renderBookings(); renderOrders(); renderMenuEditor();
+      renderKpis(); renderBookings(); renderOrders(); renderMenuEditor(); loadSrv();
       if (aiSet) { const s = settings(); aiSet.greeting.value = s.greeting; aiSet.tone.value = s.tone; aiSet.endpoint.value = store.get('ai', {}).endpoint || ''; }
     }
     show();

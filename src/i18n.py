@@ -1,6 +1,8 @@
 # Translations: Russian source -> (Uzbek Latin, English).
 # Strings not listed here stay in Russian. Prices/units are handled by regex in build_i18n.py.
 T = {
+'Хранить переписку дольше (на этом телефоне)': ('Yozishmani uzoqroq saqlash (shu telefonda)', 'Keep the chat longer (on this phone)'),
+'Переписка хранится, пока вы пользуетесь помощником. Сотрётся, если 4 месяца не писать и не открывать уведомления.': ("Yordamchidan foydalanar ekansiz, yozishma saqlanadi. 4 oy yozmasangiz va bildirishnomalarni ochmasangiz, o'chadi.", "The chat is kept while you use the assistant. It's erased after 4 months with no messages and no opened notifications."),
 'Озвучивать ответы': ('Javoblarni ovozli o\'qish', 'Read answers aloud'),
 'Ответы будут озвучиваться': ('Javoblar ovozli o\'qiladi', 'Answers will be read aloud'),
 'Прослушать': ('Tinglash', 'Listen'),

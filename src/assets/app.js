@@ -560,11 +560,22 @@
     const pick = lang => { const vs = speechSynthesis.getVoices(); for (const p of PREF[lang] || ['ru']) { const v = vs.find(x => x.lang.toLowerCase().startsWith(p)); if (v) return v; } return null; };
     const detect = t => /[а-яё]/i.test(t) && !/[ўқғҳ]/i.test(t) ? 'ru' : /[ўқғҳ]|o['ʻ‘’`]|g['ʻ‘’`]|\b(va|bilan|uchun|siz|sizga|bor|yo'q|narxi|so'm|mehmon)\b/i.test(t) ? 'uz' : /[a-z]/i.test(t) ? (LANG === 'uz' ? 'uz' : 'en') : LANG;
     const clean = t => t.replace(/https?:\S+/g, '').replace(/[\u{1F000}-\u{1FFFF}☀-➿]/gu, '').replace(/(\d)[\s  ](?=\d{3}\b)/g, '$1').replace(/[«»"*_]/g, '').trim();
+    let actx = null;
+    function pop() { // tiny two-note «bloop», 120 ms, quiet
+      try {
+        actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+        const t = actx.currentTime, o = actx.createOscillator(), g = actx.createGain();
+        o.type = 'sine'; o.frequency.setValueAtTime(660, t); o.frequency.exponentialRampToValueAtTime(990, t + .09);
+        g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(.08, t + .02); g.gain.exponentialRampToValueAtTime(.0001, t + .12);
+        o.connect(g).connect(actx.destination); o.start(t); o.stop(t + .13);
+      } catch {}
+    }
     function speak(text) {
       speechSynthesis.cancel();
       const lang = detect(text), u = new SpeechSynthesisUtterance(clean(text)), v = pick(lang);
       if (v) { u.voice = v; u.lang = v.lang; } else u.lang = { ru: 'ru-RU', uz: 'uz-UZ', en: 'en-US' }[lang];
-      u.rate = 1.03;
+      u.rate = 1.07; u.pitch = 1.45;   // the flatbread mascot speaks higher and brighter than a news anchor
+      pop();
       u.onstart = () => { ava?.classList.add('is-talking'); btn?.classList.add('is-speaking'); };
       u.onend = u.onerror = () => { ava?.classList.remove('is-talking'); btn?.classList.remove('is-speaking'); };
       speechSynthesis.speak(u);
@@ -590,7 +601,7 @@
   const keepBox = $('[data-ai-keep]');
   if (keepBox) {
     keepBox.checked = !!store.get('chat_keep', false);
-    keepBox.addEventListener('change', () => { store.set('chat_keep', keepBox.checked); toast(keepBox.checked ? tt('Переписка сохранится на 90 дней на этом телефоне') : tt('Переписка снова хранится 7 дней')); });
+    keepBox.addEventListener('change', () => { store.set('chat_keep', keepBox.checked); toast(keepBox.checked ? tt('Переписка хранится, пока вы пользуетесь помощником. Сотрётся, если 4 месяца не писать и не открывать уведомления.') : tt('Переписка снова хранится 7 дней')); });
   }
   // phone numbers become one tappable, unbreakable link: +998 95 343 43 43
   const PHONE = /(\+?998[\s\u00a0\u202f()-]*\d{2}[\s\u00a0\u202f)-]*\d{3}[\s\u00a0\u202f-]*\d{2}[\s\u00a0\u202f-]*\d{2})/g;
@@ -900,8 +911,11 @@
   // guest chat and admin chat are kept apart: an admin conversation must never leak into a guest's one
   const chatKey = () => isAdmin() ? 'polvon_chat_admin' : 'polvon_chat';
   const loadChat = () => { try { const c = JSON.parse(localStorage.getItem(chatKey()) || 'null'); return c && Date.now() - c.t < chatLife() ? c.m : []; } catch { return []; } };
-  // admin chat never expires; a guest keeps it 7 days, or 90 days if they tick «Хранить переписку» (stays on their phone only)
-  const chatLife = () => isAdmin() ? Infinity : store.get('chat_keep', false) ? 90 * 864e5 : WEEK;
+  // admin chat never expires. A guest keeps it 7 days; with «Хранить переписку» ticked it stays while they use it and is erased
+  // only after 4 months with no messages and no opened notifications (opening one counts as activity, see touchChat)
+  const chatLife = () => isAdmin() ? Infinity : store.get('chat_keep', false) ? 120 * 864e5 : WEEK;
+  const touchChat = () => { try { const k = chatKey(), c = JSON.parse(localStorage.getItem(k) || 'null'); if (c) { c.t = Date.now(); localStorage.setItem(k, JSON.stringify(c)); } } catch {} };
+  if (/[?&]from=push\b/.test(location.search)) touchChat();
   const history = loadChat();
   const memory = {
     get: () => { try { return JSON.parse(localStorage.getItem('polvon_mem') || '[]'); } catch { return []; } },

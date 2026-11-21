@@ -397,7 +397,7 @@ def footer():
       <button class="ai-send" type="submit" aria-label="Отправить">{ic("i-send")}</button>
     </form>
     <p class="ai-foot">Переписка и ваши предпочтения хранятся только на этом устройстве. Не пишите сюда телефоны и личные данные.</p>
-    <label class="ai-keep"><input type="checkbox" data-ai-keep> <span>Хранить переписку 90 дней (на этом телефоне)</span></label>
+    <label class="ai-keep"><input type="checkbox" data-ai-keep> <span>Хранить переписку дольше (на этом телефоне)</span></label>
   </div>
 </section>
 <div class="toast-host" aria-live="polite"></div>

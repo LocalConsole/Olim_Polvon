@@ -72,7 +72,7 @@ def sum_fmt(n):
     return f"{n:,}".replace(",", " ") + " сум"
 
 # temporarily off the site: no price yet, or the description only says "ask on Telegram"
-HIDDEN = {"Чайханский плов", "Фруктовое ассорти", "Куртоба"}
+HIDDEN = {"Чайханский плов", "Фруктовое ассорти", "Куртоба", "Салат «Куш ини»"}
 # MENU: categories with their items, Russian is the build language (uz/en come from i18n)
 MENU = []
 for cid, uz, ru, en in CATS:

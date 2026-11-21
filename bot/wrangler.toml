@@ -8,6 +8,7 @@ compatibility_date = "2026-11-01"
 #   SITE_KEY        — shared with Google Apps Script (Script Properties → SITE_KEY)
 #   ADMIN_PASS      — password for the site admin panel
 #   GROQ_KEY, AI_KEY (Gemini)
+#   VAPID_PRIVATE   — from `node scripts/vapid.mjs` (push notifications on the site)
 
 [vars]
 DEV_IDS = ""                                   # your Telegram id(s), comma separated
@@ -15,6 +16,8 @@ ORIGINS = "https://localconsole.github.io"
 PHOTO_BASE = "https://localconsole.github.io/Olim_Polvon/assets/menu/tg/"
 BOT_USERNAME = "Olimpolvon_bot"
 TZ_OFFSET = "5"                                # Tashkent, UTC+5
+VAPID_PUBLIC = ""                              # node scripts/vapid.mjs → paste VAPID_PUBLIC here, VAPID_PRIVATE as a secret
+VAPID_SUBJECT = "mailto:admin@olimpolvon.uz"
 
 [[d1_databases]]
 binding = "DB"

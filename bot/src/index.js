@@ -5,6 +5,7 @@ import { runDue } from "./outbox.js";
 import { tg } from "./tg.js";
 import { log, now, kvGet, kvSet, localDay, localTime, money, devIds } from "./lib.js";
 import { stats, ST_RU, BST_RU } from "./core.js";
+import { missYou } from "./push.js";
 
 const COMMANDS = {
   ru: [["menu", "Меню"], ["cart", "Корзина"], ["book", "Бронь стола"], ["my", "Мои заказы"], ["lang", "Язык"]],
@@ -48,6 +49,8 @@ export default {
         const r = await env.DB.prepare("SELECT id FROM users WHERE role='checker' AND notify=1").all();
         for (const id of new Set([...(r.results || []).map(x => x.id)])) await tg(env, "sendMessage", { chat_id: id, text, parse_mode: "HTML" }, { quiet: true });
       }
+      // «Ёрдамчи помнит вас» once a day at 12:30 Tashkent
+      if (hm >= "12:30" && (await kvGet(env, "miss_day")) !== day) { await kvSet(env, "miss_day", day); const r = await missYou(env); if (r.ok || r.gone) await log(env, "info", "push", `miss-you: sent ${r.ok}, dead ${r.gone}`); }
       // housekeeping once an hour
       if (new Date().getUTCMinutes() === 7) {
         const old = now() - 14 * 864e5;

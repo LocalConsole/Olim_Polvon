@@ -1,6 +1,18 @@
 # Translations: Russian source -> (Uzbek Latin, English).
 # Strings not listed here stay in Russian. Prices/units are handled by regex in build_i18n.py.
 T = {
+'Включаем…': ('Yoqilmoqda…', 'Turning on…'),
+'Уведомления': ('Bildirishnomalar', 'Notifications'),
+'Уведомления включены': ('Bildirishnomalar yoqilgan', 'Notifications are on'),
+'Включить уведомления': ('Bildirishnomalarni yoqish', 'Turn on notifications'),
+'Уведомления выключены': ("Bildirishnomalar o'chirildi", 'Notifications are off'),
+'Сообщить, когда статус изменится?': ("Holat o'zgarganda xabar beraylikmi?", 'Let you know when the status changes?'),
+'Уведомления включены. Ёрдамчи напишет, когда будет что-то важное.': ('Bildirishnomalar yoqildi. Yordamchi muhim narsa bo\'lsa yozadi.', "Notifications are on. Yordamchi will write when something important happens."),
+'На iPhone: нажмите «Поделиться» → «На экран Домой», откройте сайт с иконки и включите уведомления там.': ("iPhone'da: «Ulashish» → «Bosh ekranga» ni bosing, saytni belgidan oching va bildirishnomalarni o'sha yerda yoqing.", 'On iPhone: tap Share → Add to Home Screen, open the site from the icon and turn on notifications there.'),
+'Этот браузер не умеет показывать уведомления.': ("Bu brauzer bildirishnoma ko'rsata olmaydi.", "This browser can't show notifications."),
+'Уведомления запрещены в настройках браузера — разрешите их для этого сайта.': ('Brauzer sozlamalarida bildirishnomalar taqiqlangan — bu sayt uchun ruxsat bering.', 'Notifications are blocked in the browser settings — allow them for this site.'),
+'Уведомления пока не настроены на сервере.': ('Bildirishnomalar serverda hali sozlanmagan.', "Notifications aren't set up on the server yet."),
+'Не получилось включить — попробуйте ещё раз.': ("Yoqib bo'lmadi — qayta urinib ko'ring.", "Couldn't turn them on — please try again."),
 'Хранить переписку дольше (на этом телефоне)': ('Yozishmani uzoqroq saqlash (shu telefonda)', 'Keep the chat longer (on this phone)'),
 'Переписка хранится, пока вы пользуетесь помощником. Сотрётся, если 4 месяца не писать и не открывать уведомления.': ("Yordamchidan foydalanar ekansiz, yozishma saqlanadi. 4 oy yozmasangiz va bildirishnomalarni ochmasangiz, o'chadi.", "The chat is kept while you use the assistant. It's erased after 4 months with no messages and no opened notifications."),
 'Озвучивать ответы': ('Javoblarni ovozli o\'qish', 'Read answers aloud'),

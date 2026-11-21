@@ -26,6 +26,7 @@ CREATE TABLE IF NOT EXISTS orders (
   items TEXT, total INTEGER, note TEXT,
   status TEXT DEFAULT 'new',         -- new | accepted | cooking | courier | done | cancelled
   staff INTEGER, staff_name TEXT,     -- who accepted it
+  cid TEXT,                          -- the site visitor's device id (for push notifications)
   lang TEXT, test INTEGER DEFAULT 0,
   created INTEGER, updated INTEGER
 );
@@ -40,7 +41,7 @@ CREATE TABLE IF NOT EXISTS bookings (
   status TEXT DEFAULT 'new',         -- new | confirmed | declined | callback | cancelled | done
   fee INTEGER,                       -- price of the booking, set by staff
   pay_status TEXT DEFAULT '',
-  staff INTEGER, staff_name TEXT,
+  staff INTEGER, staff_name TEXT, cid TEXT,
   lang TEXT, test INTEGER DEFAULT 0,
   created INTEGER, updated INTEGER
 );
@@ -66,6 +67,17 @@ CREATE TABLE IF NOT EXISTS outbox (
 );
 CREATE INDEX IF NOT EXISTS outbox_due ON outbox(status, next_at);
 CREATE INDEX IF NOT EXISTS outbox_ref ON outbox(ref);
+
+-- Web Push subscriptions of site guests (one row per browser)
+CREATE TABLE IF NOT EXISTS push_subs (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  endpoint TEXT UNIQUE NOT NULL, p256dh TEXT, auth TEXT,
+  cid TEXT, lang TEXT DEFAULT 'ru',
+  created INTEGER, last_seen INTEGER,   -- last visit or opened notification
+  last_sent INTEGER, last_miss INTEGER, -- last «we miss you»
+  unanswered INTEGER DEFAULT 0          -- «we miss you» sent and not opened; at 3 we stop
+);
+CREATE INDEX IF NOT EXISTS push_cid ON push_subs(cid);
 
 CREATE TABLE IF NOT EXISTS invites (code TEXT PRIMARY KEY, role TEXT, by INTEGER, created INTEGER, used_by INTEGER);
 CREATE TABLE IF NOT EXISTS sessions (token TEXT PRIMARY KEY, who TEXT, exp INTEGER);

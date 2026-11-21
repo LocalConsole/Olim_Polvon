@@ -384,6 +384,7 @@ def footer():
     <span class="ai-ava ai-ava--mascot" data-ai-ava>{mascot()}</span>
     <div><b>Ёрдамчи</b><span class="ai-status">AI-помощник {SITE['name']}</span></div>
     <button class="ai-voice" type="button" data-ai-voice aria-pressed="false" aria-label="Озвучивать ответы" title="Озвучивать ответы"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4z"/><path class="w1" d="M15.5 9.5a3.5 3.5 0 0 1 0 5"/><path class="w2" d="M18.5 6.5a8 8 0 0 1 0 11"/></svg></button>
+    <button class="ai-bell" type="button" data-push-toggle aria-pressed="false" aria-label="Уведомления" title="Включить уведомления"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 8 3 8H3s3-1 3-8"/><path d="M10.3 20a1.9 1.9 0 0 0 3.4 0"/></svg></button>
     <button class="ai-forget" type="button" data-ai-forget title="Забыть меня: стереть переписку и предпочтения с этого устройства">Забыть меня</button>
     <button class="ai-close" type="button" data-ai-close aria-label="Закрыть чат">{ic("i-close")}</button>
   </div>
@@ -879,7 +880,7 @@ pages = [("", "1.0", "weekly"), ("menu.html", "0.9", "weekly"), ("contact.html",
 write("sitemap.xml", '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' + "".join(
     f"  <url><loc>{SITE['domain']}/{p}</loc><lastmod>{today}</lastmod><changefreq>{f}</changefreq><priority>{pr}</priority></url>\n" for p, pr, f in pages) + "</urlset>\n")
 write("robots.txt", f"User-agent: *\nAllow: /\nDisallow: /admin.html\n\nSitemap: {SITE['domain']}/sitemap.xml\n")
-write("site.webmanifest", json.dumps({"name": f"{SITE['name_full']}", "short_name": SITE["name"], "start_url": "/", "display": "standalone",
+write("site.webmanifest", json.dumps({"name": f"{SITE['name_full']}", "short_name": SITE["name"], "start_url": "./", "scope": "./", "display": "standalone",
     "background_color": "#f4ede1", "theme_color": "#f4ede1", "icons": [{"src": "assets/icon-512.png", "sizes": "512x512", "type": "image/png"}, {"src": "assets/apple-touch-icon.png", "sizes": "180x180", "type": "image/png"}]}, ensure_ascii=False, indent=1))
 print("built", [p.name for p in ROOT.glob("*.html")])
 

@@ -5,6 +5,7 @@ import { now, esc, money, J, log, devIds, kvGet, setting } from "./lib.js";
 import { enqueue, flush, sentFor } from "./outbox.js";
 import { tg, ik, btn, url } from "./tg.js";
 import { t } from "./texts.js";
+import { pushToClient, pt } from "./push.js";
 
 export const BY_ID = new Map(ITEMS.map((d, i) => [d.id, { ...d, i }]));
 export const ORDER_FLOW = ["new", "accepted", "cooking", "courier", "done"];
@@ -96,12 +97,12 @@ export async function createOrder(env, d) {
   const lat = Number.isFinite(+d.lat) && d.lat !== "" && d.lat != null ? +(+d.lat).toFixed(6) : null, lon = lat != null ? +(+d.lon).toFixed(6) : null;
   const test = await isTest(env, d.tg_user) ? 1 : 0;
   const pay = type === "table" ? "" : (d.pay === "card" || d.pay === "transfer" ? "card" : "cash");
-  const row = await env.DB.prepare(`INSERT INTO orders(id,source,tg_user,type,table_no,name,phone,address,lat,lon,live,when_txt,pay,pay_status,items,total,note,status,lang,test,created,updated)
-    VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'new',?,?,?,?) ON CONFLICT(id) DO NOTHING RETURNING *`).bind(
+  const row = await env.DB.prepare(`INSERT INTO orders(id,source,tg_user,type,table_no,name,phone,address,lat,lon,live,when_txt,pay,pay_status,items,total,note,status,lang,test,created,updated,cid)
+    VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'new',?,?,?,?,?) ON CONFLICT(id) DO NOTHING RETURNING *`).bind(
     id, d.source || "site", d.tg_user || null, type, type === "table" ? String(d.table || "").slice(0, 4) : "",
     String(d.name || "").slice(0, 60), String(d.phone || "").slice(0, 30), String(d.address || "").slice(0, 200),
     lat, lon, d.live && lat != null ? 1 : 0, String(d.when || "").slice(0, 40), pay, pay === "card" ? "wait" : "",
-    JSON.stringify(lines), total, String(d.note || "").slice(0, 300), ["ru", "uz", "en"].includes(d.lang) ? d.lang : "ru", test, now(), now()).first();
+    JSON.stringify(lines), total, String(d.note || "").slice(0, 300), ["ru", "uz", "en"].includes(d.lang) ? d.lang : "ru", test, now(), now(), d.cid ? String(d.cid).slice(0, 40) : null).first();
   if (!row) return { row: await env.DB.prepare("SELECT * FROM orders WHERE id=?").bind(id).first(), created: false }; // lost a race: same id
   const ids = [];
   for (const chat of await recipients(env, "orders", test)) {
@@ -120,11 +121,11 @@ export async function createBooking(env, d) {
   if (String(d.phone || "").replace(/\D/g, "").length < 9) throw new Error("bad phone");
   const test = await isTest(env, d.tg_user) ? 1 : 0;
   const fee = +(await setting(env, "booking_fee")) || null;
-  const row = await env.DB.prepare(`INSERT INTO bookings(id,source,tg_user,name,phone,day,time,guests,zone,note,status,fee,lang,test,created,updated)
-    VALUES(?,?,?,?,?,?,?,?,?,?,'new',?,?,?,?,?) ON CONFLICT(id) DO NOTHING RETURNING *`).bind(
+  const row = await env.DB.prepare(`INSERT INTO bookings(id,source,tg_user,name,phone,day,time,guests,zone,note,status,fee,lang,test,created,updated,cid)
+    VALUES(?,?,?,?,?,?,?,?,?,?,'new',?,?,?,?,?,?) ON CONFLICT(id) DO NOTHING RETURNING *`).bind(
     id, d.source || "site", d.tg_user || null, String(d.name || "").slice(0, 60), String(d.phone || "").slice(0, 30), d.day || d.date, d.time,
     Math.max(1, Math.min(200, parseInt(d.guests, 10) || 2)), String(d.zone || "").slice(0, 60), String(d.note || "").slice(0, 300),
-    fee, ["ru", "uz", "en"].includes(d.lang) ? d.lang : "ru", test, now(), now()).first();
+    fee, ["ru", "uz", "en"].includes(d.lang) ? d.lang : "ru", test, now(), now(), d.cid ? String(d.cid).slice(0, 40) : null).first();
   if (!row) return { row: await env.DB.prepare("SELECT * FROM bookings WHERE id=?").bind(id).first(), created: false };
   const ids = [];
   for (const chat of await recipients(env, "bookings", test))
@@ -152,10 +153,12 @@ export async function setOrderStatus(env, num, status, who) {
   await refreshCards(env, "order:" + num, orderText(row), orderKb(row));
   if (["done", "cancelled"].includes(st)) for (const m of await sentFor(env, "live:" + num)) await tg(env, "stopMessageLiveLocation", { chat_id: m.chat_id, message_id: m.msg_id }, { quiet: true });
   const ids = await tellGuest(env, row, "status_upd", { n: num, s: t(row.lang, "st_" + st) });
+  if (st !== "new") await pushToClient(env, row.cid, l => ({ title: pt(l, "order", { n: num }), body: pt(l, "st_" + st), url: "./?from=push", tag: "order" + num, urgent: st === "courier" }));
   await log(env, "info", "order", `#${num} -> ${st} by ${who?.name || "?"}`);
   return { row, ids };
 }
 
+const PT_B = ["confirmed", "declined", "callback", "cancelled"];
 export async function setBookingStatus(env, num, status, who, fee) {
   const b = await getBooking(env, num); if (!b) return { error: "not found" };
   if (status === "fee") {
@@ -169,6 +172,7 @@ export async function setBookingStatus(env, num, status, who, fee) {
   let ids = [];
   if (status === "fee") ids = await tellGuest(env, row, "b_fee", { sum: money(fee, row.lang), card: await setting(env, "card"), owner: await setting(env, "card_owner") });
   else ids = await tellGuest(env, row, "b_upd", { n: num, d: row.day, t: row.time, s: t(row.lang, "bs_" + status) });
+  if (status === "fee" || PT_B.includes(status)) await pushToClient(env, row.cid, l => ({ title: pt(l, "booking", { n: num }), body: status === "fee" ? pt(l, "fee", { sum: money(fee, l) }) : pt(l, "bs_" + status), url: "./?from=push", tag: "booking" + num }));
   await log(env, "info", "booking", `#${num} -> ${status}${fee ? " " + fee : ""} by ${who?.name || "?"}`);
   return { row, ids };
 }
@@ -208,6 +212,7 @@ export async function setPay(env, kind, ref, ok, who) {
   for (const r of rcs.results || []) for (const m of await sentFor(env, "receipt:" + r.num))
     await tg(env, "editMessageReplyMarkup", { chat_id: m.chat_id, message_id: m.msg_id, reply_markup: ik([[btn(ok ? "✅ Оплата подтверждена · " + (who?.name || "") : "❌ Нет оплаты · " + (who?.name || ""), "noop")]]) }, { quiet: true });
   const ids = await tellGuest(env, row, ok ? "pay_ok" : "pay_no", { n: ref });
+  await pushToClient(env, row.cid, l => ({ title: pt(l, kind === "booking" ? "booking" : "order", { n: ref }), body: pt(l, ok ? "pay_ok" : "pay_no"), url: "./?from=push", tag: kind + ref + "pay" }));
   await log(env, "info", "pay", `${kind} #${ref} ${ok ? "ok" : "no"} by ${who?.name || "?"}`);
   return { row, ids };
 }

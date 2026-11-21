@@ -6,6 +6,7 @@ import { now, esc, money, J, log, kvGet, kvSet, devIds, localDay, layoutFix, set
 import { enqueue, flush, runDue } from "./outbox.js";
 import * as core from "./core.js";
 import { ask } from "./ai.js";
+import { pushMany } from "./push.js";
 
 const LANGS = ["ru", "uz", "en"];
 const li = l => ({ ru: 0, uz: 1, en: 2 }[l] ?? 0);
@@ -407,6 +408,14 @@ export async function handleUpdate(env, upd, ctx) {
     if (cmd === "/health" && can(u, "dev")) return health(env, u);
     if (cmd === "/logs" && can(u, "dev")) return showLogs(env, u);
     if (cmd === "/test" && can(u, "dev")) { const on = (await kvGet(env, "test_mode", "0")) !== "1"; await kvSet(env, "test_mode", on ? "1" : "0"); return send(env, u.id, on ? "🧪 Тест-режим ВКЛ: все новые заказы и брони приходят только разработчикам, с пометкой ТЕСТ." : "Тест-режим выключен."); }
+    if (cmd === "/push" && can(u, "manage")) { // /push текст — уведомление всем гостям сайта, разрешившим уведомления
+      const msgText = args.join(" ").trim();
+      const all = await env.DB.prepare("SELECT * FROM push_subs").all();
+      if (!msgText) return send(env, u.id, `Подписано на уведомления сайта: ${(all.results || []).length}. Отправить всем: /push текст`);
+      const r = await pushMany(env, all.results || [], () => ({ title: "Olim Polvon", body: msgText.slice(0, 180), url: "./?from=push", tag: "news" }));
+      await log(env, "info", "push", `${u.name}: broadcast to ${r.ok}`);
+      return send(env, u.id, `Отправлено: ${r.ok}. Отписались (удалены): ${r.gone}.`);
+    }
     if (cmd === "/set" && can(u, "manage")) { // /set card 8600… | /set card_owner Имя | /set booking_fee 100000 | /set notes текст акций
       const key = args[0], val = args.slice(1).join(" ");
       const keys = { card: "card_number", card_owner: "card_owner", booking_fee: "booking_fee", notes: "notes", delivery_info: "delivery_info" };

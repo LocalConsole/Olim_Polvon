@@ -79,6 +79,21 @@ export async function handleApi(env, req, ctx, path) {
       if (!viaGas) return out({ error: "forbidden" }, 403, h);
       await kvSet(env, "notes", String(body.notes || "").slice(0, 1500)); return out({ ok: true }, 200, h);
     }
+    // ---- push notifications for site guests
+    if (route === "push/key") return out({ ok: true, key: env.VAPID_PUBLIC || "" }, 200, h);
+    if (route === "push/sub") {
+      const s = body.sub || {}, ep = String(s.endpoint || "");
+      if (!/^https:\/\/[\w.-]+\//.test(ep) || ep.length > 600 || !s.keys?.p256dh || !s.keys?.auth) return out({ error: "bad subscription" }, 400, h);
+      await env.DB.prepare(`INSERT INTO push_subs(endpoint,p256dh,auth,cid,lang,created,last_seen,unanswered) VALUES(?,?,?,?,?,?,?,0)
+        ON CONFLICT(endpoint) DO UPDATE SET p256dh=excluded.p256dh, auth=excluded.auth, cid=excluded.cid, lang=excluded.lang, last_seen=excluded.last_seen, unanswered=0`)
+        .bind(ep, String(s.keys.p256dh).slice(0, 200), String(s.keys.auth).slice(0, 60), String(body.cid || "").slice(0, 40), ["ru", "uz", "en"].includes(body.lang) ? body.lang : "ru", now(), now()).run();
+      return out({ ok: true }, 200, h);
+    }
+    if (route === "push/seen") { // a visit or an opened notification: the guest is active again
+      if (body.cid) await env.DB.prepare("UPDATE push_subs SET last_seen=?, unanswered=0, lang=COALESCE(?,lang) WHERE cid=?").bind(now(), ["ru", "uz", "en"].includes(body.lang) ? body.lang : null, String(body.cid).slice(0, 40)).run();
+      return out({ ok: true }, 200, h);
+    }
+    if (route === "push/unsub") { await env.DB.prepare("DELETE FROM push_subs WHERE endpoint=?").bind(String(body.endpoint || "")).run(); return out({ ok: true }, 200, h); }
     if (route === "config") return out({ ok: true, card: { number: await setting(env, "card"), owner: await setting(env, "card_owner") } }, 200, h);
 
     // ---- admin panel of the site

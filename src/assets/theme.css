@@ -520,3 +520,18 @@ img.lz { background: rgba(185,124,29,.08) url(ph-logo.webp) center / auto 56% no
 .is-admin .ai-keep { display: none; }
 @media (prefers-reduced-motion: reduce) { .ai-voice.is-speaking .w2 { animation: none; } }
 @media (max-width: 420px) { .ai-head .ai-status { display: none; } }
+
+/* notifications: bell in the assistant, «notify me» offer */
+.ai-bell { width: 34px; height: 34px; display: grid; place-items: center; margin-left: 8px; border-radius: 999px; border: 1px solid var(--line-strong); background: transparent; color: var(--muted); cursor: pointer; transition: color 160ms ease, border-color 160ms ease, background-color 160ms ease; }
+.ai-bell.is-on { color: var(--gold-deep); border-color: var(--gold); background: rgba(230,166,60,.14); }
+.ai-voice + .ai-bell + .ai-forget { margin-left: 8px; }
+.push-offer { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin: 12px 0; padding: 10px 14px; border-radius: 14px; border: 1px dashed var(--gold); background: rgba(230,166,60,.08); font-size: 14px; text-align: left; }
+.push-offer[hidden] { display: none; }
+@media (max-width: 420px) { .ai-forget { padding: 0 9px; } }
+@media (max-width: 420px) {
+  .ai-head { gap: 8px; }
+  .ai-head .ai-voice, .ai-head .ai-bell { width: 32px; height: 32px; }
+  .ai-head .ai-bell, .ai-voice + .ai-bell + .ai-forget { margin-left: 4px; }
+  .ai-head .ai-forget { height: 32px; padding: 0 8px; font-size: 11px; }
+  .ai-head .ai-close { flex: none; }
+}

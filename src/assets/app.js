@@ -36,6 +36,8 @@
      Script (works in Uzbekistan), then the bot Worker directly. */
   const API = (root.dataset.api || '').split(/[\s,]+/).filter(Boolean);
   const newId = p => p + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+  // this browser's id: links its orders/bookings to its push subscription (no name, no phone)
+  const CID = (() => { let c = store.get('cid', ''); if (!c) { c = newId('c'); store.set('cid', c); } return c; })();
   async function apiCall(route, payload) {
     let last = { error: 'network' };
     for (const ep of API) {
@@ -128,6 +130,7 @@
         $$(`[data-pay="${CSS.escape(x.id)}"]`).forEach(el => { el.innerHTML = payHtml(x) || (x.num ? '' : `<p class="co-hint">${esc(tt('Номер карты появится, как только заказ дойдёт до ресторана.'))}</p>`); });
       });
       if (dlg.open && openId) openSheet(openId);
+      window.POLVON_PUSH?.draw();
     }
     function openSheet(id) {
       const x = track.list().find(y => y.id === id); if (!x) { dlg.close(); return; }
@@ -135,9 +138,10 @@
       dlg.innerHTML = `<div class="co-card co-done"><button type="button" class="co-x" data-close aria-label="${esc(tt('Закрыть'))}"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
         <h2>${x.kind === 'order' ? esc(tt('Заказ')) : esc(tt('Бронь'))}${x.num ? ' №' + x.num : ''}</h2>
         <p class="trk-big">${esc(label(x))}</p>${x.kind === 'booking' && x.date ? `<p class="co-hint">${esc(x.date)} · ${esc(x.time || '')}${x.fee ? ' · ' + esc(tt('стоимость брони')) + ' ' + fmt(x.fee) : ''}</p>` : ''}
-        ${steps(x)}${payHtml(x)}
+        ${steps(x)}${payHtml(x)}${FINAL[x.kind].includes(x.status) ? '' : pushOffer()}
         <div class="co-done-actions"><a class="btn btn--ghost" href="tel:+998953434343">${esc(tt('Позвонить'))}</a><a class="btn btn--ghost" href="https://t.me/Olimpolvon_bot" target="_blank" rel="noopener">Telegram</a>${FINAL[x.kind].includes(x.status) || x.failed ? `<button type="button" class="mini-btn" data-hide="${esc(x.id)}">${esc(tt('Скрыть'))}</button>` : ''}</div></div>`;
       if (!dlg.open) dlg.showModal();
+      window.POLVON_PUSH?.draw();
     }
     host.addEventListener('click', e => { const b = e.target.closest('[data-trk]'); if (b) openSheet(b.dataset.trk); });
     dlg.addEventListener('click', e => {
@@ -183,6 +187,56 @@
     setInterval(poll, 30000); setTimeout(poll, 1500); draw();
     window.POLVON_TRACK = { draw, poll };
   })();
+
+  /* ---------------- notifications (Web Push): order/booking status + «Ёрдамчи помнит вас» ---------------- */
+  const push = (() => {
+    const ok = 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+    const ios = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+    let reg = null;
+    const swUrl = new URL((document.querySelector('link[rel=manifest]')?.getAttribute('href') || 'site.webmanifest').replace(/site\.webmanifest.*$/, 'sw.js'), location.href);
+    const u8 = s => Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/') + '==='.slice((s.length + 3) % 4)), c => c.charCodeAt(0));
+    const state = () => !ok || (ios && !standalone) ? (ios ? 'ios' : 'no') : Notification.permission === 'denied' ? 'denied' : Notification.permission === 'granted' && store.get('push_on', false) ? 'on' : 'off';
+    async function enable() {
+      const st = state();
+      if (st === 'ios') { toast(tt('На iPhone: нажмите «Поделиться» → «На экран Домой», откройте сайт с иконки и включите уведомления там.')); return false; }
+      if (st === 'no') { toast(tt('Этот браузер не умеет показывать уведомления.')); return false; }
+      if (st === 'denied') { toast(tt('Уведомления запрещены в настройках браузера — разрешите их для этого сайта.')); return false; }
+      const perm = await Notification.requestPermission(); if (perm !== 'granted') { draw(); return false; }
+      toast(tt('Включаем…'));
+      try {
+        const k = await apiCall('push/key', {}); if (!k.ok || !k.key) { toast(tt('Уведомления пока не настроены на сервере.')); return false; }
+        reg = reg || await navigator.serviceWorker.ready;
+        const sub = await reg.pushManager.getSubscription() || await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: u8(k.key) });
+        const j = await apiCall('push/sub', { cid: CID, lang: LANG, sub: sub.toJSON() });
+        if (!j.ok) { toast(tt('Не получилось включить — попробуйте ещё раз.')); return false; }
+        store.set('push_on', true); toast(tt('Уведомления включены. Ёрдамчи напишет, когда будет что-то важное.')); draw(); return true;
+      } catch { toast(tt('Не получилось включить — попробуйте ещё раз.')); return false; }
+    }
+    async function disable() {
+      try { const sub = await reg?.pushManager.getSubscription(); if (sub) { apiCall('push/unsub', { endpoint: sub.endpoint }); await sub.unsubscribe(); } } catch {}
+      store.set('push_on', false); toast(tt('Уведомления выключены')); draw();
+    }
+    // the bell in the assistant + «notify me» blocks (status sheet, order-received screen)
+    function draw() {
+      const st = state();
+      $$('[data-push-toggle]').forEach(b => { b.classList.toggle('is-on', st === 'on'); b.setAttribute('aria-pressed', String(st === 'on')); b.title = st === 'on' ? tt('Уведомления включены') : tt('Включить уведомления'); });
+      $$('[data-push-offer]').forEach(el => { el.hidden = st === 'on' || st === 'no'; });
+    }
+    document.addEventListener('click', e => {
+      const b = e.target.closest('[data-push-toggle], [data-push-offer] button'); if (!b) return;
+      state() === 'on' && b.matches('[data-push-toggle]') ? disable() : enable();
+    });
+    if (ok) navigator.serviceWorker.register(swUrl).then(r => { reg = r; }).catch(() => {});
+    // a visit or an opened notification = the guest is here (resets «we miss you»), at most twice a day
+    if (store.get('push_on', false) && (/[?&]from=push\b/.test(location.search) || Date.now() - store.get('seen_at', 0) > 12 * 3600e3)) {
+      store.set('seen_at', Date.now()); setTimeout(() => apiCall('push/seen', { cid: CID, lang: LANG }), 2500);
+    }
+    draw();
+    return { draw, state, enable };
+  })();
+  window.POLVON_PUSH = push;
+  const pushOffer = () => push.state() === 'no' ? '' : `<div class="push-offer" data-push-offer><span>🔔 ${esc(tt('Сообщить, когда статус изменится?'))}</span><button type="button" class="mini-btn">${esc(tt('Включить уведомления'))}</button></div>`;
 
   /* ---------------- menu data (+ admin overrides) ---------------- */
   const BASE_MENU = (() => { try { return JSON.parse($('#menu-data').textContent); } catch { return []; } })();
@@ -865,7 +919,7 @@
     const list = store.get('orders', []); list.unshift(o); store.set('orders', list.slice(0, 30));
     // to the server (repeats until it answers ok); prices are checked there again
     sync.put({ key: 'order:' + o.id, route: 'order', payload: { id: o.id, type: o.type, table: o.table, name: o.name, phone: o.phone, address: o.address, lat: o.lat, lon: o.lon, live: o.live,
-      when: o.when, pay: o.pay === 'transfer' ? 'card' : o.pay, note: o.note, lang: LANG, items: cart.lines().map(l => ({ id: l.d.sid || l.d.id, q: l.q, name: l.d.name, price: l.d.price })) } });
+      when: o.when, pay: o.pay === 'transfer' ? 'card' : o.pay, note: o.note, lang: LANG, cid: CID, items: cart.lines().map(l => ({ id: l.d.sid || l.d.id, q: l.q, name: l.d.name, price: l.d.price })) } });
     track.add('order', o.id, { total: o.total, pay: o.pay === 'transfer' ? 'card' : o.pay, type: o.type });
     if (coMode !== 'table') store.set('guest', { name: o.name, phone: o.phone, address: o.address || coSaved().address || '' });
     const kind = { delivery: tt('Доставка'), pickup: tt('Навынос'), table: tt('Стол') + ' №' + TABLE }[coMode];
@@ -880,12 +934,13 @@
       ${o.live ? `<div class="co-live-box"><span class="co-live-dot" aria-hidden="true"></span><div><b data-live-status>${esc(tt('Включаем трансляцию…'))}</b><small>${esc(tt('Не закрывайте эту страницу и не выключайте интернет, пока курьер в пути.'))}</small></div><button type="button" class="mini-btn" data-live-stop>${esc(tt('Остановить'))}</button></div>` : ''}
       <p class="co-sync" data-sync="${esc(o.id)}">${esc(tt('Отправляем заказ…'))}</p>
       ${o.pay === 'transfer' ? `<div class="co-pay" data-pay="${esc(o.id)}"></div>` : ''}
+      ${o.type !== 'table' ? pushOffer() : ''}
       <p class="co-summary">${esc(text)}</p>
       <div class="co-done-actions"><a class="btn" href="https://t.me/Olimpolvon_bot" target="_blank" rel="noopener" data-co-tg>${esc(tt('Продублировать в Telegram'))}</a><a class="btn btn--ghost" href="tel:+998909167774">${esc(tt('Позвонить'))}</a></div></div>`;
     co.querySelector('[data-co-tg]')?.addEventListener('click', () => { navigator.clipboard?.writeText(text).then(() => toast(tt('Заказ скопирован — вставьте его в Telegram-бот'))).catch(() => {}); });
     if (o.live) startLive(o.id);
     co.querySelector('h2').focus();
-    window.POLVON_TRACK?.draw();
+    window.POLVON_TRACK?.draw(); window.POLVON_PUSH?.draw();
   });
   window.addEventListener('polvon-cart', () => { syncMenuAdds(); renderOrderBar(); });
   window.addEventListener('storage', e => { if (e.key === 'polvon_cart') { renderCartBar(); syncMenuAdds(); renderOrderBar(); } });
@@ -916,6 +971,7 @@
   const chatLife = () => isAdmin() ? Infinity : store.get('chat_keep', false) ? 120 * 864e5 : WEEK;
   const touchChat = () => { try { const k = chatKey(), c = JSON.parse(localStorage.getItem(k) || 'null'); if (c) { c.t = Date.now(); localStorage.setItem(k, JSON.stringify(c)); } } catch {} };
   if (/[?&]from=push\b/.test(location.search)) touchChat();
+  if (/[?&]ai=1\b/.test(location.search)) setTimeout(() => $('[data-ai-open]:not([hidden])')?.click(), 900);
   const history = loadChat();
   const memory = {
     get: () => { try { return JSON.parse(localStorage.getItem('polvon_mem') || '[]'); } catch { return []; } },
@@ -1446,7 +1502,7 @@
       if (!ok) return;
       const b = { id: newId('b'), name: booking.elements.name.value.trim(), phone: booking.elements.phone.value.trim(), date: date.value, time: booking.elements.time.value, guests, zone: booking.elements.zone.value, note: booking.elements.note.value.trim(), status: 'new' };
       const list = store.get('bookings', []); list.unshift(b); store.set('bookings', list.slice(0, 30));
-      sync.put({ key: 'booking:' + b.id, route: 'booking', payload: { id: b.id, name: b.name, phone: b.phone, date: b.date, time: b.time, guests: b.guests, zone: b.zone, note: b.note, lang: LANG } });
+      sync.put({ key: 'booking:' + b.id, route: 'booking', payload: { id: b.id, name: b.name, phone: b.phone, date: b.date, time: b.time, guests: b.guests, zone: b.zone, note: b.note, lang: LANG, cid: CID } });
       track.add('booking', b.id, { date: b.date, time: b.time });
       const bs = $('[data-booking-sync]'); if (bs) bs.dataset.sync = b.id;
       window.POLVON_TRACK?.draw();

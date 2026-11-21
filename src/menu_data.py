@@ -113,7 +113,7 @@ ITEMS = [
  ("66d016dacd9b640c7bc6d7ba", "salat", "Qarsildoq baqlajon", "Хрустящие баклажаны", "Crispy aubergine", "Baqlajon, rukola, maxsus sous", "Баклажаны, рукола, фирменный соус", "Aubergine, rocket, house sauce", 44000, "p", True),
  ("66d016dacd9b640c7bc6d7be", "salat", "Bek salati", "Салат «Бек»", "Bek salad", "Tuzlangan bodring, tovuq, ot go‘shti, shampinion, shalot, qaymoq, mayonez", "Солёный огурец, курица, конина, шампиньоны, шалот, каймак, майонез", "Pickles, chicken, horse meat, mushrooms, shallot, cream, mayonnaise", 47000, "p", True),
  ("69f787a69ec6a47339768e6d", "salat", "Qurtoba", "Куртоба", "Qurtoba", "Tafsilot uchun Telegram orqali bog‘laning", "Подробности — в Telegram", "Ask on Telegram for details", 65000, "p", True),
- ("custom-meva-assorti", "salat", "Meva assorti", "Фруктовое ассорти", "Fruit platter", "Mavsumiy mevalardan", "Из сезонных фруктов", "Seasonal fruit", None, "tg", False),
+ ("custom-meva-assorti", "salat", "Meva assorti", "Фруктовое ассорти", "Fruit platter", "Mavsumiy mevalardan", "Из сезонных фруктов", "Seasonal fruit", None, "p", False),
  # --- yevropa
  ("66d016dbcd9b640c7bc6d7fc", "yevropa", "Okroshka", "Окрошка", "Okroshka", "Ot go‘shti, bodring, kartoshka, tuxum, ukrop, qatiq", "Конина, огурец, картофель, яйцо, укроп, катык", "Horse meat, cucumber, potato, egg, dill, yoghurt", 38000, "p", True),
  ("66d016dbcd9b640c7bc6d7fe", "yevropa", "Kuksi", "Кукси", "Kuksi", "Mol go‘shti, karam, bodring, tuxum, pomidor, maxsus lapsha, soya", "Говядина, капуста, огурец, яйцо, помидор, лапша, соя", "Beef, cabbage, cucumber, egg, tomato, noodles, soy", 44000, "p", True),

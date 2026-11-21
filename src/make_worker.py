@@ -3,7 +3,7 @@ The API key never reaches the browser: it lives in the Worker as the secret AI_K
 import json, pathlib
 from menu_data import CATS, UNITS, ITEMS
 
-HIDDEN = {"Чайханский плов", "Фруктовое ассорти", "Куртоба"}
+HIDDEN = {"Куртоба"}  # keep in sync with build.py
 cat_ru = {c[0]: c[2] for c in CATS}
 lines = []
 for cid, uz, ru, en in CATS:
@@ -14,6 +14,10 @@ for cid, uz, ru, en in CATS:
         p = f"{price:,}".replace(",", " ") + " сум" if price else "цена уточняется"
         p = p.replace(" сум", "").replace(" 000", "к")
         lines.append(f"{n_ru} ({n_uz}) {p}" + (f": {d_ru}" if d_ru else ""))
+NOPRICE = [r for r in ITEMS if r[8] is None and r[3] not in HIDDEN]
+if NOPRICE:
+    lines.append("## Есть в меню, но цена ещё уточняется (сам НЕ советуй и не добавляй в заказ; если гость спросит — скажи, что блюдо есть, а цену подскажет официант или по телефону)")
+    lines.append(", ".join(f"{r[3]} ({r[2]})" for r in NOPRICE))
 MENU_TEXT = "\n".join(lines)
 
 ADMIN = """РЕЖИМ АДМИНИСТРАТОРА: сейчас пишет сотрудник ресторана, вошедший в админку. Здесь ты не продаёшь блюда, а помогаешь работать с сайтом: коротко, по делу, по шагам, без шуток про еду. САМ ты ничего не меняешь — только объясняешь и даёшь кнопку перехода (поле "go").

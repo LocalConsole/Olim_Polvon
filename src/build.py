@@ -54,6 +54,33 @@ IMG = "assets/img/"
 # ---------------------------------------------------------------- menu data (from the restaurant's own online menu)
 from menu_data import CATS, UNITS, ITEMS
 MENU_IMG = "assets/menu/"
+
+# ---- fast images: a 300px copy for phones/slow links + a tiny blurred preview drawn under every photo
+import base64, io
+from PIL import Image as _PIL
+_LQ = {}
+def _small(path):
+    """assets/menu/x.webp -> assets/menu/x-s.webp (300px), made once and refreshed when the photo changes"""
+    p = ROOT / path; s = p.with_name(p.stem + "-s.webp")
+    if not s.exists() or s.stat().st_mtime < p.stat().st_mtime:
+        im = _PIL.open(p).convert("RGB"); im.thumbnail((300, 300)); im.save(s, quality=72, method=6)
+    return str(pathlib.Path(path).with_name(s.name))
+def lqip(path):
+    """~200-byte blurred preview as a data: URL, shown instantly while the real photo loads"""
+    if path not in _LQ:
+        im = _PIL.open(ROOT / path).convert("RGB"); im.thumbnail((24, 24))
+        buf = io.BytesIO(); im.save(buf, "WEBP", quality=40)
+        _LQ[path] = "data:image/webp;base64," + base64.b64encode(buf.getvalue()).decode()
+    return _LQ[path]
+def fast_img(url, alt="", w=600, h=450, sizes="(max-width: 600px) 92vw, 360px", eager=False, extra=""):
+    """menu photo: blurred preview at once, 300px for small screens/slow internet, 600px when needed"""
+    path, _, q = url.partition("?"); q = ("?" + q) if q else ""
+    small = _small(path) + q
+    load = 'fetchpriority="high"' if eager else 'loading="lazy"'
+    style = f'background:#e8e2d6 url({lqip(path)}) center/cover no-repeat'
+    return (f'<img src="{small}" srcset="{small} 300w, {url} 600w" sizes="{sizes}" alt="{html.escape(alt)}" '
+            f'width="{w}" height="{h}" {load} decoding="async" style="{style}"{extra}>')
+
 USED_PHOTOS = {"f163008803"}
 TAG_LABEL = {"hit": "Хит", "spicy": "Острое", "veg": "Без мяса"}
 HITS = {"Qovurma lag‘mon", "Norin", "Napoleon", "Shilpildoq", "Maxsus «Olim Polvon» salati", "Ilik sho‘rva", "Shashlik assorti"}
@@ -72,29 +99,31 @@ def sum_fmt(n):
     return f"{n:,}".replace(",", " ") + " сум"
 
 # temporarily off the site: no price yet, or the description only says "ask on Telegram"
-HIDDEN = {"Чайханский плов", "Фруктовое ассорти", "Куртоба", "Салат «Куш ини»"}
+HIDDEN = {"Куртоба"}  # waiting for a new photo; keep in sync with make_worker.py
 # MENU: categories with their items, Russian is the build language (uz/en come from i18n)
 MENU = []
 for cid, uz, ru, en in CATS:
     items = []
     for (sid, cat, n_uz, n_ru, n_en, d_uz, d_ru, d_en, price, unit, has_ph) in ITEMS:
-        if cat != cid or n_ru in HIDDEN or price is None: continue  # no price yet -> not shown
+        if cat != cid or n_ru in HIDDEN: continue  # no price -> shown as «цена уточняется», no «+»
         tags = (["hit"] if n_uz in HITS else []) + (["spicy"] if n_uz in SPICY else [])
         items.append({"sid": sid, "id": slug(n_en), "uz": n_uz, "ru": n_ru, "en": n_en, "d_uz": d_uz, "d_ru": d_ru, "d_en": d_en,
                       "price": price, "unit": unit, "img": (MENU_IMG + sid + ".webp?v=" + str(int((ROOT / MENU_IMG / (sid + ".webp")).stat().st_mtime) % 100000)) if has_ph else None, "tags": tags})
     MENU.append({"id": cid, "uz": uz, "ru": ru, "en": en, "items": items})
 
 MENU_JSON = [{"id": it["id"], "key": it["ru"], "cat": c["id"], "catTitle": c["ru"], "name": it["ru"], "desc": it["d_ru"],
-              "weight": UNITS[it["unit"]][1], "price": it["price"], "tags": it["tags"], "img": it["img"], "alt": it["uz"] + " " + it["en"]} for c in MENU for it in c["items"]]
+              "weight": UNITS[it["unit"]][1], "price": it["price"], "tags": it["tags"], "img": (_small(it["img"].split("?")[0]) + "?" + it["img"].split("?")[1]) if it["img"] else None, "alt": it["uz"] + " " + it["en"]} for c in MENU for it in c["items"]]
 BY_RU = {it["ru"]: it for c in MENU for it in c["items"]}
 def dish(ru): return BY_RU[ru]
+
 
 def img(id_, alt, sizes="(max-width: 900px) 100vw, 50vw", eager=False, has1280=True, cls=""):
     srcset = f"{IMG}photo-{id_}-500.webp 500w, {IMG}photo-{id_}-960.webp 960w" + (f", {IMG}photo-{id_}.webp 1280w" if has1280 else "")
     src = f"{IMG}photo-{id_}-960.webp"
     load = 'fetchpriority="high"' if eager else 'loading="lazy"'
     c = f' class="{cls}"' if cls else ""
-    return f'<img{c} src="{src}" srcset="{srcset}" sizes="{sizes}" alt="{html.escape(alt)}" {load} decoding="async">'
+    style = f' style="background:#e8e2d6 url({lqip(IMG + "photo-" + id_ + "-500.webp")}) center/cover no-repeat"'
+    return f'<img{c} src="{src}" srcset="{srcset}" sizes="{sizes}" alt="{html.escape(alt)}" {load} decoding="async"{style}>'
 NO1280 = {"f163008803"}
 def photo(id_, alt, **kw):
     kw.setdefault("has1280", id_ not in NO1280)
@@ -102,7 +131,7 @@ def photo(id_, alt, **kw):
 def mphoto(ru, alt=None, eager=False):
     it = dish(ru)
     load = 'fetchpriority="high"' if eager else 'loading="lazy"'
-    return f'<img src="{it["img"]}" alt="{html.escape(alt or it["ru"])}" width="600" height="450" {load} decoding="async">'
+    return fast_img(it["img"], alt or it["ru"], sizes="(max-width: 900px) 92vw, 600px", eager=eager)
 
 # ---------------------------------------------------------------- icons
 ICONS = """<svg width="0" height="0" style="position:absolute" aria-hidden="true">
@@ -439,7 +468,7 @@ def story_html():
 delivery_html = " · ".join(f'<a href="tel:{h}">{p}</a>' for p, h in SITE["delivery"])
 CAT_PREVIEW = {"shashlik": "Наполеон", "milliy": "Норин", "uygur": "Ковурма лагман", "salat": "Чиракчи", "yevropa": "Колбаски классические", "non": "Лепёшка", "ichimlik": "Coca-Cola"}
 cats_rows = "".join(f'''<li class="cat-row"><a href="menu.html#{c["id"]}" data-cat="{c["id"]}" data-title="{c["ru"]}" data-count="{len(c["items"])} позиций" data-preview="{dish(CAT_PREVIEW[c["id"]])["img"]}">
-  <img class="cat-thumb" src="{dish(CAT_PREVIEW[c["id"]])["img"]}" alt="" loading="lazy" width="64" height="64">
+  <img class="cat-thumb" src="{_small(dish(CAT_PREVIEW[c["id"]])["img"].split("?")[0])}" alt="" loading="lazy" width="64" height="64">
   <span class="cat-name">{c["ru"]}</span><span class="cat-count">{len(c["items"])} позиций</span><span class="cat-arrow">{ic("i-arrow")}</span></a></li>''' for c in MENU)
 
 INTRO = f'''<div class="intro" data-intro aria-hidden="true">
@@ -499,7 +528,7 @@ index = head("home",
       <div class="cats-layout">
         <ul class="cats" data-cats>{cats_rows}</ul>
         <aside class="cat-card" data-cat-card aria-hidden="true">
-          <div class="cat-card-ph">{"".join(f'<img src="{dish(CAT_PREVIEW[c["id"]])["img"]}" alt="" loading="lazy" width="600" height="450" data-for="{c["id"]}"{" class=" + chr(34) + "is-on" + chr(34) if i == 0 else ""}>' for i, c in enumerate(MENU))}</div>
+          <div class="cat-card-ph">{"".join(fast_img(dish(CAT_PREVIEW[c["id"]])["img"], sizes="(max-width: 900px) 92vw, 520px", extra=f' data-for="{c["id"]}"' + (' class="is-on"' if i == 0 else "")) for i, c in enumerate(MENU))}</div>
           <div class="cat-card-cap"><b data-cat-card-title>{MENU[0]["ru"]}</b><span data-cat-card-count>{len(MENU[0]["items"])} позиций</span></div>
         </aside>
       </div>
@@ -611,7 +640,7 @@ def menu_items(cat):
     rows = []
     for it in cat["items"]:
         tg = "".join(f'<span class="tag tag--{t}">{TAG_LABEL[t]}</span>' for t in it["tags"])
-        ph = (f'<div class="dish-ph"><img src="{it["img"]}" alt="{html.escape(it["ru"])}" width="600" height="450" loading="lazy" decoding="async"></div>'
+        ph = (f'<div class="dish-ph">{fast_img(it["img"], it["ru"])}</div>'
               if it["img"] else f'<div class="dish-ph dish-ph--empty"><svg class="ph-orn" viewBox="0 0 400 400" aria-hidden="true">{MEDALLION_SVG}</svg><span class="ph-name">{it["ru"]}</span><small>Фото скоро</small></div>')
         desc = f'<p>{it["d_ru"]}</p>' if it["d_ru"] else ""
         rows.append(f"""<li class="menu-item" id="{it['id']}" data-id="{it['id']}" data-tags="{' '.join(it['tags'])}" data-search="{html.escape((it['ru'] + ' ' + it['uz'] + ' ' + it['en'] + ' ' + it['d_ru']).lower())}">

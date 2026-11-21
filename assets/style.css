@@ -1262,3 +1262,6 @@ body::before {
 .live-pill { display: inline-block; padding: 1px 8px; border-radius: 999px; background: rgba(63,163,90,.18); color: #2f8a49; font-size: 12px; font-weight: 600; }
 .type-pill--table { background: rgba(76,160,90,.18); }
 @media (prefers-reduced-motion: reduce) { .co-live-dot, .co-geo-btn.is-busy svg { animation: none; } }
+
+/* fast images: hide alt text while the blurred preview is showing */
+img[style*="background"] { color: transparent; }

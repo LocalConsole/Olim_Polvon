@@ -80,7 +80,7 @@ ITEMS = [
  ("66d016dacd9b640c7bc6d790", "salat", "Achchiq chuchuk", "Аччик-чучук", "Achchiq-chuchuk", "Pomidor, bodring, piyoz", "Помидор, огурец, лук", "Tomato, cucumber, onion", 20000, "p", True),
  ("66d016dacd9b640c7bc6d792", "salat", "Chiroqchi", "Чиракчи", "Chiroqchi", "Pomidor, bodring, piyoz, suzma", "Помидор, огурец, лук, сузьма", "Tomato, cucumber, onion, suzma", 28000, "p", True),
  ("66d016dacd9b640c7bc6d794", "salat", "Bahor", "Бахор", "Bahor", "Bodring, ukrop, qatiq", "Огурец, укроп, катык", "Cucumber, dill, yoghurt", 18000, "p", True),
- ("custom-achchiq-kichik", "salat", "Achchiq chuchuk, kichik", "Аччик-чучук, малый", "Achchiq-chuchuk, small", "Pomidor, bodring, piyoz", "Помидор, огурец, лук", "Tomato, cucumber, onion", 15000, "p", False),
+ ("custom-achchiq-kichik", "salat", "Achchiq chuchuk, kichik", "Аччик-чучук, малый", "Achchiq-chuchuk, small", "Pomidor, bodring, piyoz", "Помидор, огурец, лук", "Tomato, cucumber, onion", 15000, "p", True),
  ("custom-barra", "salat", "Barra salat", "Барра салат", "Barra salad", "", "", "", 30000, "p", False),
  ("custom-barra-kichik", "salat", "Barra salat, kichik", "Барра салат, малый", "Barra salad, small", "", "", "", 20000, "p", False),
  ("custom-marinad-assorti", "salat", "Marinadlangan assorti", "Маринованное ассорти", "Marinated platter", "", "", "", 30000, "p", False),

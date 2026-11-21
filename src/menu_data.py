@@ -113,7 +113,7 @@ ITEMS = [
  ("custom-meva-assorti", "salat", "Meva assorti", "Фруктовое ассорти", "Fruit platter", "Mavsumiy mevalardan", "Из сезонных фруктов", "Seasonal fruit", None, "tg", False),
  # --- yevropa
  ("66d016dbcd9b640c7bc6d7fc", "yevropa", "Okroshka", "Окрошка", "Okroshka", "Ot go‘shti, bodring, kartoshka, tuxum, ukrop, qatiq", "Конина, огурец, картофель, яйцо, укроп, катык", "Horse meat, cucumber, potato, egg, dill, yoghurt", 38000, "p", True),
- ("66d016dbcd9b640c7bc6d7fe", "yevropa", "Kuksi", "Куксу", "Kuksu", "Mol go‘shti, karam, bodring, tuxum, pomidor, maxsus lapsha, soya", "Говядина, капуста, огурец, яйцо, помидор, лапша, соя", "Beef, cabbage, cucumber, egg, tomato, noodles, soy", 44000, "p", True),
+ ("66d016dbcd9b640c7bc6d7fe", "yevropa", "Kuksi", "Кукси", "Kuksi", "Mol go‘shti, karam, bodring, tuxum, pomidor, maxsus lapsha, soya", "Говядина, капуста, огурец, яйцо, помидор, лапша, соя", "Beef, cabbage, cucumber, egg, tomato, noodles, soy", 44000, "p", True),
  ("66d016dbcd9b640c7bc6d814", "yevropa", "Kartoshka fri", "Картофель фри", "French fries", "Kartoshka, ketchup", "Картофель, кетчуп", "Potato, ketchup", 21000, "p", True),
  ("66d016dccd9b640c7bc6d83c", "yevropa", "Kolbasa klassik", "Колбаски классические", "Classic sausages", "Kolbasa, kartoshka, sarimsoqli sous", "Колбаски, картофель, чесночный соус", "Sausages, potatoes, garlic sauce", 81000, "p", True),
  ("66d016dccd9b640c7bc6d83e", "yevropa", "Kolbasa achchiq", "Колбаски острые", "Spicy sausages", "Achchiq kolbasa, kartoshka, sarimsoqli sous", "Острые колбаски, картофель, чесночный соус", "Spicy sausages, potatoes, garlic sauce", 81000, "p", True),

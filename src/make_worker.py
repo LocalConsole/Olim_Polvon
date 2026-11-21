@@ -7,7 +7,7 @@ HIDDEN = {"Чайханский плов", "Фруктовое ассорти", 
 cat_ru = {c[0]: c[2] for c in CATS}
 lines = []
 for cid, uz, ru, en in CATS:
-    rows = [r for r in ITEMS if r[1] == cid and r[3] not in HIDDEN]
+    rows = [r for r in ITEMS if r[1] == cid and r[3] not in HIDDEN and r[8] is not None]  # same as the site: no price -> hidden
     if not rows: continue
     lines.append(f"## {ru}")
     for (sid, cat, n_uz, n_ru, n_en, d_uz, d_ru, d_en, price, unit, ph) in rows:

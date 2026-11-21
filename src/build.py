@@ -56,7 +56,7 @@ from menu_data import CATS, UNITS, ITEMS
 MENU_IMG = "assets/menu/"
 USED_PHOTOS = {"f163008803"}
 TAG_LABEL = {"hit": "Хит", "spicy": "Острое", "veg": "Без мяса"}
-HITS = {"Qovurma lag‘mon", "Norin", "Napoleon", "Beshbarmoq", "Maxsus «Olim Polvon» salati", "Ilik sho‘rva", "Shashlik assorti"}
+HITS = {"Qovurma lag‘mon", "Norin", "Napoleon", "Shilpildoq", "Maxsus «Olim Polvon» salati", "Ilik sho‘rva", "Shashlik assorti"}
 SPICY = {"Qovurma lag‘mon", "Uyg‘urcha lag‘mon", "Kolbasa achchiq", "Go‘sht say", "Ganfan", "Manpar"}
 
 def slug(s):
@@ -169,7 +169,7 @@ def restaurant_schema():
         "@id": SITE["domain"] + "/#restaurant",
         "name": SITE["name_full"],
         "alternateName": [SITE["name"], SITE["name_ru"], "Олим Полвон Миллий Таомлари", "Olim Polvon milliy taomlar"],
-        "description": "Семейный ресторан узбекской, уйгурской и европейской кухни на Большой кольцевой (Эркин), Ташкент: қовурма лағмон, норин, бешбармак, халим, кабобы на углях. Доставка.",
+        "description": "Семейный ресторан узбекской, уйгурской и европейской кухни на Большой кольцевой (Эркин), Ташкент: қовурма лағмон, норин, шилпилдок, халим, кабобы на углях. Доставка.",
         "url": SITE["domain"] + "/",
         "image": [SITE["domain"] + "/" + dish("Ковурма лагман")["img"], SITE["domain"] + "/" + dish("Норин")["img"], SITE["domain"] + "/share.jpg"],
         "logo": SITE["domain"] + "/assets/icon-512.png",
@@ -415,7 +415,7 @@ ORN_RULE = '<div class="orn-rule" aria-hidden="true"><span></span><svg viewBox="
 import hashlib
 ASSET_V = hashlib.md5((ROOT / "assets/app.js").read_bytes() + (ROOT / "assets/style.css").read_bytes()).hexdigest()[:8]
 # ---------------------------------------------------------------- INDEX
-marquee_items = ["Ковурма лагман", "Норин", "Наполеон", "Бешбармак", "Халим", "Тахта кабоб", "Илик шурпа", "Казан-кабоб"]
+marquee_items = ["Ковурма лагман", "Норин", "Наполеон", "Шилпилдок", "Халим", "Тахта кабоб", "Илик шурпа", "Казан-кабоб"]
 mq = "".join(f"<span>{t}</span>{ic('mark','')}" for t in marquee_items)
 plates = [
     ("dish-qovurma.webp?v=5", "Ковурма лагман", "-22%", "-24%"),
@@ -452,7 +452,7 @@ INTRO = f'''<div class="intro" data-intro aria-hidden="true">
 '''
 index = head("home",
     f"{SITE['name_full']} — национальная кухня на Большой кольцевой, Ташкент",
-    "Olim Polvon Milliy Taomlari — семейный ресторан узбекской и уйгурской кухни: ковурма лагман, норин, бешбармак, шашлыки на углях. Рейтинг 5,0 в Яндекс Картах. Доставка по Ташкенту.",
+    "Olim Polvon Milliy Taomlari — семейный ресторан узбекской и уйгурской кухни: ковурма лагман, норин, шилпилдок, шашлыки на углях. Рейтинг 5,0 в Яндекс Картах. Доставка по Ташкенту.",
     "index.html", [restaurant_schema(), {"@context": "https://schema.org", "@type": "WebSite", "name": SITE["name_full"], "url": SITE["domain"] + "/", "inLanguage": "ru"}],
     preload_img=IMG + "dish-non.webp") + header("index.html").replace('<a class="skip"', INTRO + '<a class="skip"', 1) + f"""
 <main id="main">
@@ -474,7 +474,7 @@ index = head("home",
       </div>
       <div class="hero-copy">
         <p class="tagline" data-enter>Har luqmada sifat, har tashrifda mamnuniyat.</p>
-        <p class="lede" data-enter>Норин, ковурма лагман, бешбармак и шашлыки на углях — дворец национальных блюд на Большой кольцевой.</p>
+        <p class="lede" data-enter>Норин, ковурма лагман, шилпилдок и шашлыки на углях — дворец национальных блюд на Большой кольцевой.</p>
         <div class="hero-actions" data-enter>
           <a class="btn" href="contact.html#booking">Забронировать стол {ic("i-arrow")}</a>
           <a class="btn btn--ghost" href="menu.html">Смотреть меню</a>
@@ -631,8 +631,8 @@ cats_html = "".join(f"""<section class="menu-cat" id="{c['id']}" aria-labelledby
 </section>
 """ for c in MENU)
 menu = head("menu",
-    f"Меню {SITE['name_full']} с ценами — шашлыки, норин, лагман, бешбармак",
-    "Полное меню и цены Olim Polvon Milliy Taomlari: шашлыки на углях, норин, бешбармак, ковурма лагман, уйгурская кухня, супы, салаты. Фото каждого блюда. Доставка по Ташкенту.",
+    f"Меню {SITE['name_full']} с ценами — шашлыки, норин, лагман, шилпилдок",
+    "Полное меню и цены Olim Polvon Milliy Taomlari: шашлыки на углях, норин, шилпилдок, ковурма лагман, уйгурская кухня, супы, салаты. Фото каждого блюда. Доставка по Ташкенту.",
     "menu.html", [restaurant_schema(), menu_schema(), crumbs_schema("Меню", "menu.html")]) + header("menu.html") + f"""
 <main id="main">
   <div class="page-head">
@@ -675,7 +675,7 @@ about = head("about",
   </div>
   <section class="section" style="padding-top:0" aria-label="Фотографии">
     <div class="wrap about-pair">
-      <div class="ph reveal">{mphoto("Бешбармак", "Бешбармак на резной деревянной доске")}</div>
+      <div class="ph reveal">{mphoto("Шилпилдок", "Шилпилдок на резной деревянной доске")}</div>
       <div class="ph reveal">{mphoto("Норин")}</div>
     </div>
   </section>
@@ -684,7 +684,7 @@ about = head("about",
       <div class="prose">
         <h2 id="kitchen-title">Кухня</h2>
         <div class="prose-body">
-          <p>Основа меню — блюда, ради которых в Ташкенте ходят в «милли таомлар»: норин, бешбармак, халим, жаркоп, илик шўрва и нўхат шўрак.</p>
+          <p>Основа меню — блюда, ради которых в Ташкенте ходят в «милли таомлар»: норин, шилпилдок, халим, жаркоп, илик шўрва и нўхат шўрак.</p>
           <p>Уйгурская часть — это лагманы. Лапшу тянут вручную, а қовурма лағмон гости называют главным блюдом ресторана.</p>
           <p>Кабобы жарят на углях из халяль-мяса: тахта, наполеон, кавказ, гиждуван қийма, куриный и рыбный.</p>
         </div>

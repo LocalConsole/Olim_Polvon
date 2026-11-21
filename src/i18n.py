@@ -1,6 +1,11 @@
 # Translations: Russian source -> (Uzbek Latin, English).
 # Strings not listed here stay in Russian. Prices/units are handled by regex in build_i18n.py.
 T = {
+'Как поменять цену?': ('Narxni qanday o\'zgartiraman?', 'How do I change a price?'),
+'Блюдо закончилось': ('Taom tugadi', 'A dish is sold out'),
+'Где заказы и брони?': ('Buyurtma va bronlar qayerda?', 'Where are orders and bookings?'),
+'Добавить новое блюдо': ('Yangi taom qo\'shish', 'Add a new dish'),
+'Режим администратора. Спросите, как поменять цену, отметить «закончилось», найти заказы или брони — дам кнопки.': ("Administrator rejimi. Narxni o'zgartirish, «tugadi» deb belgilash, buyurtma yoki bronlarni topish haqida so'rang — tugmalar beraman.", 'Admin mode. Ask how to change a price, mark a dish as sold out, or find orders and bookings — I\'ll give you buttons.'),
 'Акции и новости для всех гостей': ('Barcha mehmonlar uchun aksiya va yangiliklar', 'Promotions and news for all guests'),
 'Напишите обычным текстом — помощник запомнит и будет рассказывать об этом всем гостям. Сохраняется в Google, видно сразу на всех устройствах.': ("Oddiy matn bilan yozing — yordamchi eslab qoladi va barcha mehmonlarga aytib beradi. Google'da saqlanadi, barcha qurilmalarda darhol ko'rinadi.", 'Write it in plain words — the assistant will remember and tell every guest. Saved in Google, visible on all devices right away.'),
 'Что сейчас действует': ('Hozir nima amal qilmoqda', "What's on now"),

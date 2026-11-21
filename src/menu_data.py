@@ -110,7 +110,7 @@ ITEMS = [
  ("66d016dccd9b640c7bc6d83c", "yevropa", "Kolbasa klassik", "Колбаски классические", "Classic sausages", "Kolbasa, kartoshka, sarimsoqli sous", "Колбаски, картофель, чесночный соус", "Sausages, potatoes, garlic sauce", 81000, "p", True),
  ("66d016dccd9b640c7bc6d83e", "yevropa", "Kolbasa achchiq", "Колбаски острые", "Spicy sausages", "Achchiq kolbasa, kartoshka, sarimsoqli sous", "Острые колбаски, картофель, чесночный соус", "Spicy sausages, potatoes, garlic sauce", 81000, "p", True),
  ("custom-pasta-alfredo", "yevropa", "Pasta Alfredo", "Паста Альфредо", "Pasta Alfredo", "Qaymoqli Alfredo sousi bilan", "Со сливочным соусом альфредо", "With creamy Alfredo sauce", 64000, "p", False),
- ("custom-medalyon", "yevropa", "Qo‘ziqorinli medalyon", "Медальоны с грибами", "Medallions with mushrooms", "Qo‘ziqorinli maxsus medalyon", "Медальоны в грибном соусе", "Medallions in a mushroom sauce", 129000, "p", False),
+ ("custom-medalyon", "yevropa", "Qo‘ziqorinli medalyon", "Медальоны с грибами", "Medallions with mushrooms", "Qo‘ziqorinli maxsus medalyon", "Медальоны в грибном соусе", "Medallions in a mushroom sauce", 128000, "p", False),
  ("custom-mini-burger", "yevropa", "Mini burgerlar", "Мини-бургеры", "Mini burgers", "Bir nechta mini burger", "Сет из нескольких мини-бургеров", "A set of mini burgers", 96000, "set", False),
  # --- bread & drinks
  ("66e7d6cccd9b640c7bc70012", "non", "Non", "Лепёшка", "Bread", "Tandir noni", "Лепёшка из тандыра", "Tandoor flatbread", 8000, "p", True),

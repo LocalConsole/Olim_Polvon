@@ -78,7 +78,7 @@ MENU = []
 for cid, uz, ru, en in CATS:
     items = []
     for (sid, cat, n_uz, n_ru, n_en, d_uz, d_ru, d_en, price, unit, has_ph) in ITEMS:
-        if cat != cid or n_ru in HIDDEN: continue
+        if cat != cid or n_ru in HIDDEN or price is None: continue  # no price yet -> not shown
         tags = (["hit"] if n_uz in HITS else []) + (["spicy"] if n_uz in SPICY else [])
         items.append({"sid": sid, "id": slug(n_en), "uz": n_uz, "ru": n_ru, "en": n_en, "d_uz": d_uz, "d_ru": d_ru, "d_en": d_en,
                       "price": price, "unit": unit, "img": (MENU_IMG + sid + ".webp?v=" + str(int((ROOT / MENU_IMG / (sid + ".webp")).stat().st_mtime) % 100000)) if has_ph else None, "tags": tags})

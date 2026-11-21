@@ -5,6 +5,7 @@ cd "$(dirname "$0")"
 cat assets/fonts2/fonts.css assets/base.css assets/pages.css assets/theme.css > assets/style.css
 python3 build.py && python3 build_i18n.py          # makes *.html, uz/, en/
 python3 make_worker.py && python3 make_gas.py      # makes ../worker/worker.js and Code.gs (paths inside scripts)
+python3 make_bot.py                                 # makes ../bot/src/menu.gen.js and assets/menu/tg/*.jpg for Telegram
 # publish: copy html + used assets to repo root
 for f in *.html robots.txt sitemap.xml site.webmanifest share.jpg; do cp "$f" ../; done
 cp -r uz en ../

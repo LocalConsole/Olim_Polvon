@@ -1,0 +1,14 @@
+{
+  "name": "olim-bot",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "menu": "cd ../src && python3 make_bot.py",
+    "dev": "wrangler dev --local --test-scheduled",
+    "db:local": "wrangler d1 execute olim-bot --local --file=schema.sql",
+    "db:remote": "wrangler d1 execute olim-bot --remote --file=schema.sql",
+    "deploy": "npm run menu && wrangler deploy",
+    "logs": "wrangler tail"
+  },
+  "devDependencies": { "wrangler": "^4.166.0" }
+}

@@ -1,0 +1,28 @@
+name = "olim-bot"
+main = "src/index.js"
+compatibility_date = "2026-11-01"
+
+# Secrets (never in git): npx wrangler secret put <NAME>
+#   BOT_TOKEN       — from @BotFather
+#   WEBHOOK_SECRET  — any long random string; Telegram sends it back in X-Telegram-Bot-Api-Secret-Token
+#   SITE_KEY        — shared with Google Apps Script (Script Properties → SITE_KEY)
+#   ADMIN_PASS      — password for the site admin panel
+#   GROQ_KEY, AI_KEY (Gemini)
+
+[vars]
+DEV_IDS = ""                                   # your Telegram id(s), comma separated
+ORIGINS = "https://localconsole.github.io"
+PHOTO_BASE = "https://localconsole.github.io/Olim_Polvon/assets/menu/tg/"
+BOT_USERNAME = "Olimpolvon_bot"
+TZ_OFFSET = "5"                                # Tashkent, UTC+5
+
+[[d1_databases]]
+binding = "DB"
+database_name = "olim-bot"
+database_id = "00000000-0000-0000-0000-000000000000"  # replace with the id printed by `wrangler d1 create olim-bot`
+
+[triggers]
+crons = ["* * * * *"]                          # retries of undelivered messages, stale live locations, daily report
+
+[observability]
+enabled = true

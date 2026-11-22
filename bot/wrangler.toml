@@ -11,7 +11,7 @@ compatibility_date = "2026-11-01"
 #   VAPID_PRIVATE   — from `node scripts/vapid.mjs` (push notifications on the site)
 
 [vars]
-DEV_IDS = ""                                   # your Telegram id(s), comma separated
+DEV_IDS = "8669704593"                                   # your Telegram id(s), comma separated
 ORIGINS = "https://localconsole.github.io"
 PHOTO_BASE = "https://localconsole.github.io/Olim_Polvon/assets/menu/tg/"
 BOT_USERNAME = "Olim_Polvon_yordamchi_bot"

@@ -7,6 +7,7 @@ import { enqueue, flush, runDue } from "./outbox.js";
 import * as core from "./core.js";
 import { ask } from "./ai.js";
 import { pushMany } from "./push.js";
+import { memKey, memGet, memUpdate, memLink } from "./mem.js";
 
 const LANGS = ["ru", "uz", "en"];
 const li = l => ({ ru: 0, uz: 1, en: 2 }[l] ?? 0);
@@ -290,9 +291,9 @@ async function showLogs(env, u) {
 // ---------- AI reply rendering
 async function aiReply(env, u, text, ctx) {
   tg(env, "sendChatAction", { chat_id: u.id, action: "typing" }, { quiet: true });
-  const hist = J((await env.DB.prepare("SELECT hist FROM users WHERE id=?").bind(u.id).first())?.hist, []);
   const role = can(u, "staff") ? u.role : "";
-  const a = await ask(env, role, text, hist);
+  const key = memKey(u), mem = await memGet(env, key);
+  const a = await ask(env, role, text, [], mem);
   if (a.error) return send(env, u.id, t(u.lang, "ai_down"));
   const rows = [];
   if (!role) {
@@ -313,8 +314,7 @@ async function aiReply(env, u, text, ctx) {
       else if (SHOW[s] && (s !== "health" && s !== "logs" || can(u, "dev"))) rows.push([btn(...SHOW[s])]);
     }
   }
-  const newHist = [...hist, { role: "user", content: text.slice(0, 300) }, { role: "assistant", content: a.reply.slice(0, 300) }].slice(-8);
-  ctx.waitUntil(env.DB.prepare("UPDATE users SET hist=? WHERE id=?").bind(JSON.stringify(newHist), u.id).run());
+  ctx.waitUntil(memUpdate(env, key, { remember: a.remember, forget: a.forget, turn: [["user", text], ["assistant", a.reply]], src: "tg" }));
   return send(env, u.id, esc(a.reply) + (u.role === "dev" ? `\n<i>${esc(a.provider)} · ${a.ms} мс</i>` : ""), rows.length ? ik(rows) : undefined);
 }
 
@@ -383,6 +383,12 @@ export async function handleUpdate(env, upd, ctx) {
         ctx.waitUntil(flush(env, [await enqueue(env, inv.by, "sendMessage", { text: `✅ ${u.name} принял(а) приглашение: ${ROLE_NAMES[inv.role]}` }, "role")]));
         await send(env, u.id, t(l, "role_set", { r: ROLE_NAMES[inv.role] }), mainKb(u));
         return showPanel(env, u);
+      }
+      if (/^c_[\w-]{6,40}$/.test(p)) { // opened from the site: one memory for the site and the bot
+        await memLink(env, u, p.slice(2));
+        await send(env, u.id, t(l, "linked"), mainKb(u));
+        if (u.isNew) return send(env, u.id, t(l, "pick_lang"), ik([[btn("O'zbekcha", "lg:uz"), btn("Русский", "lg:ru"), btn("English", "lg:en")]]));
+        return;
       }
       if (/^table_?\d{1,3}$/i.test(p)) await kvSet(env, "table:" + u.id, JSON.stringify({ n: p.replace(/\D/g, ""), at: now() }));
       await saveState(env, u, {});

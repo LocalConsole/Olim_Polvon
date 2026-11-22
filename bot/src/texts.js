@@ -88,6 +88,7 @@ export const T = {
   bs_cancelled: ["✖️ отменена", "✖️ bekor qilindi", "✖️ cancelled"], bs_done: ["🏁 состоялась", "🏁 bo'lib o'tdi", "🏁 done"],
   b_upd: ["Бронь №{n} на {d} {t}: {s}", "№{n} bron ({d} {t}): {s}", "Booking #{n} for {d} {t}: {s}"],
   b_fee: ["Стоимость брони: <b>{sum}</b>. Оплатите переводом на карту <code>{card}</code> ({owner}) и пришлите сюда скриншот чека.", "Bron narxi: <b>{sum}</b>. <code>{card}</code> ({owner}) kartasiga o'tkazing va chek skrinshotini shu yerga yuboring.", "Booking price: <b>{sum}</b>. Transfer to card <code>{card}</code> ({owner}) and send the receipt screenshot here."],
+  linked: ["Ассаламу алейкум! Это снова я, Ёрдамчи 🫓 Помню наш разговор на сайте — продолжим здесь. Спрашивайте или откройте меню.", "Assalomu alaykum! Yana men, Yordamchi 🫓 Saytdagi suhbatimizni eslayman — shu yerda davom etamiz. So'rang yoki menyuni oching.", "Hello! It's me again, Yordamchi 🫓 I remember our chat on the website — let's continue here. Ask me anything or open the menu."],
   thinking: ["…", "…", "…"],
   ai_down: ["Сейчас не могу ответить — попробуйте через минуту или позвоните +998 95 343 43 43.", "Hozir javob bera olmayman — bir daqiqadan so'ng urinib ko'ring yoki +998 95 343 43 43 ga qo'ng'iroq qiling.", "I can't answer right now — try again in a minute or call +998 95 343 43 43."],
   role_set: ["Вам назначена роль: <b>{r}</b>. Откройте /panel.", "Sizga rol berildi: <b>{r}</b>. /panel ni oching.", "You've been given the role: <b>{r}</b>. Open /panel."],

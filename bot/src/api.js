@@ -94,6 +94,13 @@ export async function handleApi(env, req, ctx, path) {
       return out({ ok: true }, 200, h);
     }
     if (route === "push/unsub") { await env.DB.prepare("DELETE FROM push_subs WHERE endpoint=?").bind(String(body.endpoint || "")).run(); return out({ ok: true }, 200, h); }
+    // ---- shared memory of the assistant (site <-> bot)
+    if (route === "mem/get" || route === "mem/set") {
+      const cid = String(body.cid || ""); if (!/^[\w-]{6,40}$/.test(cid)) return out({ error: "bad cid" }, 400, h);
+      const { memGet, memFromSite } = await import("./mem.js");
+      const m = route === "mem/set" ? await memFromSite(env, cid, body.facts, body.recent) : await memGet(env, "c:" + cid);
+      return out({ ok: true, facts: m.facts, recent: m.recent.filter(t => t.src === "tg").slice(-6) }, 200, h);
+    }
     if (route === "config") return out({ ok: true, card: { number: await setting(env, "card"), owner: await setting(env, "card_owner") } }, 200, h);
 
     // ---- admin panel of the site

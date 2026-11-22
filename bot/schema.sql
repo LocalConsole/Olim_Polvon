@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS users (
   state TEXT DEFAULT '{}',           -- current dialog step (checkout, booking…)
   cart TEXT DEFAULT '{}',            -- {dishId: qty}
   hist TEXT DEFAULT '[]',            -- last AI turns
+  cid TEXT,                          -- linked site visitor (shared memory with the site assistant)
   created INTEGER, seen INTEGER
 );
 
@@ -78,6 +79,14 @@ CREATE TABLE IF NOT EXISTS push_subs (
   unanswered INTEGER DEFAULT 0          -- «we miss you» sent and not opened; at 3 we stop
 );
 CREATE INDEX IF NOT EXISTS push_cid ON push_subs(cid);
+
+-- what Ёрдамчи remembers about a person, shared by the site and the bot (key: c:<site id> or tg:<telegram id>)
+CREATE TABLE IF NOT EXISTS mem (
+  key TEXT PRIMARY KEY,
+  facts TEXT DEFAULT '[]',              -- «не ест острое», «обычно вчетвером»…
+  recent TEXT DEFAULT '[]',             -- last turns: [{src:'site'|'tg', role, text, at}]
+  updated INTEGER
+);
 
 CREATE TABLE IF NOT EXISTS invites (code TEXT PRIMARY KEY, role TEXT, by INTEGER, created INTEGER, used_by INTEGER);
 CREATE TABLE IF NOT EXISTS sessions (token TEXT PRIMARY KEY, who TEXT, exp INTEGER);

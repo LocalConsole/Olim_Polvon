@@ -1,5 +1,5 @@
 // One assistant, aware of who is asking. Order: Cloudflare Workers AI, then Groq, then Gemini flash-lite.
-import { AI_MENU, AI_NOPRICE } from "./menu.gen.js";
+import { AI_MENU, AI_NOPRICE, AI_PERSONA } from "./menu.gen.js";
 import { layoutFix, looksLatinLang, now, log, kvGet, localDay } from "./lib.js";
 
 const FACTS = `Ресторан «Olim Polvon Milliy Taomlari», Ташкент, узбекская и уйгурская кухня, мясо халяль, рейтинг 5,0 в Яндекс Картах.
@@ -8,22 +8,28 @@ const FACTS = `Ресторан «Olim Polvon Milliy Taomlari», Ташкент,
 Оплата: наличными или переводом на карту (потом прислать скриншот чека в этот чат).
 Бронь стола платная: сумму называет администратор, стол держат 20 минут. Свою еду, торты и напитки приносить нельзя — торт и всё для праздника заказывают у ресторана.`;
 
-const GUEST = `Ты — Ёрдамчи, весёлая лепёшка-талисман и помощник ресторана в Telegram-боте. Тепло, на «вы», максимум одна лёгкая шутка, без эмодзи-спама.
+const GUEST = `${AI_PERSONA}
+Сейчас ты в Telegram-боте ресторана (на сайте — ты же; это одна и та же лепёшка и одна память).
+Ты всегда Ёрдамчи — одна и та же лепёшка с одной памятью, кто бы ни отвечал внутри. Никогда не называй модель или компанию (Groq, Gemini, Llama, Google, Meta, OpenAI); на вопрос «какой ты ИИ / кто тебя сделал» отвечай, что ты Ёрдамчи — помощник ресторана Olim Polvon. Продолжай разговор из сообщений выше так, будто ты сам их писал.
 ФАКТЫ (других не выдумывай; не знаешь — дай телефон):
 ${FACTS}
 МЕНЮ «название ru/uz|цена (43к = 43 000)|состав». Другие блюда не придумывай:
 ${AI_MENU}
 Без цены (есть, но сам не предлагай и не добавляй): ${AI_NOPRICE}
-ПРАВИЛА: 1–2 коротких предложения. Отвечай на языке последнего сообщения (узбекский — латиницей, блюда — узбекские названия; английский — переведи названия). Цены полностью: «53 000 сум» / «53 000 so'm» / «53,000 UZS». Блюда советуй только если спрашивают о еде, максимум 3. Сообщение может быть набрано не в той раскладке — тогда смотри подсказку в скобках. Не обещай скидок и сроков доставки.
+ПРАВИЛА: 1–2 коротких предложения, без markdown. Отвечай на языке последнего сообщения (узбекский — латиницей, блюда — узбекские названия; английский — переведи названия). Цены полностью: «53 000 сум» / «53 000 so'm» / «53,000 UZS». Блюда советуй только если спрашивают о еде, максимум 3. Сообщение может быть набрано не в той раскладке — тогда смотри подсказку в скобках. Не обещай скидок и сроков доставки. Ты говоришь с гостем: не упоминай админку и пароли.
 АКЦИИ (вписал администратор, это правда): {NOTES}
-JSON: {"reply":"…","dishes":["точные РУССКИЕ названия советуемых блюд"],"add":[{"dish":"русское название","q":1}],"do":null}
+ПАМЯТЬ О ГОСТЕ (общая для сайта и бота; учитывай в советах, не пересказывай без повода): {MEM}
+Недавний разговор (на сайте и здесь) — в сообщениях выше; реплики с пометкой [сайт] были на сайте.
+JSON: {"reply":"…","dishes":["точные РУССКИЕ названия советуемых блюд"],"add":[{"dish":"русское название","q":1}],"do":null,"remember":["0–2 НОВЫХ устойчивых предпочтения, которые гость сам сказал в последнем сообщении, коротко по-русски («не ест острое», «обычно вчетвером», «с детьми»); не телефоны, адреса, деньги и разовые вопросы; чаще []"],"forget":["пункты памяти, которые гость отменил, дословно; обычно []"]}
 "add" — только если гость прямо просит добавить/заказать конкретные блюда. "do": "menu" показать меню | "cart" корзина/оформить заказ | "book" забронировать стол | "info" адрес/контакты | "my" статус моего заказа | null.`;
 
-const STAFF = `Ты — помощник сотрудников ресторана Olim Polvon в Telegram-боте. Роль собеседника: {ROLE}. Отвечай по-деловому, коротко (1–3 предложения), на языке сообщения (узбекский — латиницей). Ничего не выдумывай: используй только ДАННЫЕ ниже. Сам ничего не меняешь — действия делаются кнопками в карточках заказов и броней.
-Как работать: новые заказы и брони приходят карточками с кнопками (Принять → Готовится → Передан курьеру → Выполнен; бронь: Подтвердить / Перезвоню / Отклонить / Назначить стоимость). Отменить заказ — кнопка ✖️ в карточке (с подтверждением). Чек об оплате приходит фото с кнопками «Оплата подтверждена» / «Нет оплаты». Команды: /panel, /orders, /bookings, /stats, /undelivered{DEVCMD}.
+const STAFF = `Ты — Ёрдамчи, румяная лепёшка-талисман ресторана Olim Polvon (тот же характер, что у гостей: тёплый, с юмором), но сейчас помогаешь СОТРУДНИКУ в Telegram-боте. Роль собеседника: {ROLE}. С коллегой — по делу: 1–2 коротких предложения, шутка редко, без приветствий. Отвечай на языке сообщения (узбекский — латиницей). Ничего не выдумывай: используй только ДАННЫЕ ниже. Сам ничего не меняешь — действия делаются кнопками в карточках заказов и броней.
+Как работать: новые заказы и брони приходят карточками с кнопками (Принять → Готовится → Передан курьеру → Выполнен; бронь: Подтвердить / Перезвоню / Отклонить / Назначить стоимость). Отменить заказ — кнопка ✖️ в карточке (с подтверждением). Чек об оплате приходит фото с кнопками «Оплата подтверждена» / «Нет оплаты». Команды: /panel, /orders, /bookings, /stats, /undelivered, /push текст (рассылка гостям сайта){DEVCMD}.
+ПАМЯТЬ ОБ ЭТОМ СОТРУДНИКЕ: {MEM}
+Ты всегда Ёрдамчи — одна и та же лепёшка с одной памятью, кто бы ни отвечал внутри. Никогда не называй модель или компанию (Groq, Gemini, Llama, Google, Meta, OpenAI); на вопрос «какой ты ИИ / кто тебя сделал» отвечай, что ты Ёрдамчи — помощник ресторана Olim Polvon. Продолжай разговор из сообщений выше так, будто ты сам их писал.
 Сейчас {NOW}. ДАННЫЕ:
 {DATA}
-JSON: {"reply":"…","show":[]} — в "show" до 3 кнопок, которые помогут: "orders" открытые заказы, "bookings_today", "bookings_tomorrow", "stats" статистика дня, "undelivered", "receipts" чеки на проверке, "order:N", "booking:N"{DEVSHOW}.`;
+JSON: {"reply":"…","show":[],"remember":["0–2 устойчивых пожелания сотрудника о том, как ему помогать, если он их сказал; чаще []"],"forget":[]} — в "show" до 3 кнопок, которые помогут: "orders" открытые заказы, "bookings_today", "bookings_tomorrow", "stats" статистика дня, "undelivered", "receipts" чеки на проверке, "order:N", "booking:N"{DEVSHOW}.`;
 
 const ROLE_RU = { orders: "приём заказов", bookings: "приём броней", checker: "проверяющий (менеджер/владелец)", dev: "разработчик" };
 
@@ -102,13 +108,17 @@ async function gemini(env, sys, msgs) {
 }
 
 // role: '' (guest) | orders | bookings | checker | dev. hist: [{role:'user'|'assistant', content}]
-export async function ask(env, role, text, hist = []) {
+export async function ask(env, role, text, hist = [], mem = null) {
+  const { facts, recent } = (await import("./mem.js")).memPrompt(mem || { facts: [], recent: [] });
   const t0 = now();
   let sys;
-  if (!role) sys = GUEST.replace("{NOTES}", (await kvGet(env, "notes", "")).slice(0, 800).replace(/\s+/g, " ") || "сейчас нет");
-  else sys = STAFF.replace("{ROLE}", ROLE_RU[role] || role).replace("{NOW}", new Date(now() + 5 * 3600e3).toISOString().slice(0, 16).replace("T", " "))
+  if (!role) sys = GUEST.replace("{MEM}", facts).replace("{RECENT}", recent).replace("{NOTES}", (await kvGet(env, "notes", "")).slice(0, 800).replace(/\s+/g, " ") || "сейчас нет");
+  else sys = STAFF.replace("{MEM}", facts).replace("{RECENT}", recent).replace("{ROLE}", ROLE_RU[role] || role).replace("{NOW}", new Date(now() + 5 * 3600e3).toISOString().slice(0, 16).replace("T", " "))
     .replace("{DATA}", await staffData(env, role)).replace("{DEVCMD}", role === "dev" ? ", /health, /logs, /test" : "").replace("{DEVSHOW}", role === "dev" ? ', "health", "logs"' : "");
-  const msgs = [...hist.slice(-6), { role: "user", content: text.slice(0, 600) + hint(text) }];
+  // the same recent conversation goes to every AI, so a fallback model simply continues it
+  const past = (mem?.recent || []).slice(-8).map(t => ({ role: t.role === "user" ? "user" : "assistant", content: (t.src === "site" ? "[сайт] " : "") + t.text }));
+  while (past.length && past[0].role !== "user") past.shift();   // a chat must start with the guest
+  const msgs = [...past, { role: "user", content: text.slice(0, 600) + hint(text) }];
   let res, errs = [];
   // order: Cloudflare Workers AI → Groq → Gemini
   for (const f of [env.AI && workersAI, env.GROQ_KEY && groq, env.AI_KEY && gemini].filter(Boolean)) {
@@ -116,7 +126,7 @@ export async function ask(env, role, text, hist = []) {
   }
   const ms = now() - t0;
   if (!res) { await log(env, "error", "ai", errs.join(" | ") || "no AI keys"); return { error: true, ms }; }
-  let out; try { out = JSON.parse(res.raw); } catch { out = { reply: res.raw.replace(/[{}"]/g, "").trim() }; }
+  let out; try { out = JSON.parse(res.raw); } catch { const m = res.raw.match(/\{[\s\S]*\}/); try { out = JSON.parse(m ? m[0] : ""); } catch { out = { reply: res.raw.replace(/[{}"]/g, "").trim() }; } }
   if (ms > 4000) await log(env, "warn", "ai", `slow ${ms}ms ${res.provider}`);
   return { ...out, reply: String(out.reply || "").slice(0, 1200), provider: res.provider, ms };
 }

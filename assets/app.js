@@ -238,6 +238,9 @@
   window.POLVON_PUSH = push;
   const pushOffer = () => push.state() === 'no' ? '' : `<div class="push-offer" data-push-offer><span>🔔 ${esc(tt('Сообщить, когда статус изменится?'))}</span><button type="button" class="mini-btn">${esc(tt('Включить уведомления'))}</button></div>`;
 
+  const linkTg = () => $$('a[href^="https://t.me/Olim_Polvon_yordamchi_bot"]').forEach(a => { if (!/start=/.test(a.href)) a.href = 'https://t.me/Olim_Polvon_yordamchi_bot?start=c_' + CID; });
+  linkTg(); document.addEventListener('click', e => { if (e.target.closest('a[href^="https://t.me/Olim_Polvon_yordamchi_bot"]')) linkTg(); }, true);
+
   /* ---------------- menu data (+ admin overrides) ---------------- */
   const BASE_MENU = (() => { try { return JSON.parse($('#menu-data').textContent); } catch { return []; } })();
   const CAT_TITLES = Object.fromEntries(BASE_MENU.map(d => [d.cat, d.catTitle]));
@@ -924,6 +927,21 @@
   if (/[?&]from=push\b/.test(location.search)) touchChat();
   if (/[?&]ai=1\b/.test(location.search)) setTimeout(() => $('[data-ai-open]:not([hidden])')?.click(), 900);
   const history = loadChat();
+  // the same memory on the server, shared with the Telegram bot (facts + last turns there)
+  const sharedMem = {
+    tg: [], loaded: false, timer: 0,
+    async load() {
+      if (sharedMem.loaded || !API.length || isAdmin()) return; sharedMem.loaded = true;
+      const j = await apiCall('mem/get', { cid: CID }); if (!j.ok) return;
+      const have = memory.get(), n = x => x.toLowerCase();
+      const add = (j.facts || []).filter(f => !have.some(h => n(h) === n(f))); if (add.length) memory.set([...have, ...add]);
+      sharedMem.tg = (j.recent || []).map(t => ({ role: t.role === 'user' ? 'me' : 'bot', text: '[telegram] ' + t.text }));
+    },
+    push() { // a few seconds after the answer, quietly
+      if (!API.length || isAdmin()) return; clearTimeout(sharedMem.timer);
+      sharedMem.timer = setTimeout(() => apiCall('mem/set', { cid: CID, facts: memory.get(), recent: history.slice(-6).map(m => ({ role: m.role, text: m.text })) }), 4000);
+    },
+  };
   const memory = {
     get: () => { try { return JSON.parse(localStorage.getItem('polvon_mem') || '[]'); } catch { return []; } },
     set: a => { try { localStorage.setItem('polvon_mem', JSON.stringify(a.slice(-12))); } catch {} },
@@ -1006,7 +1024,7 @@
       const r = await fetch(url, { method: 'POST', signal: ctl.signal, redirect: 'follow',
         // Apps Script accepts only "simple" requests (no CORS preflight), so send JSON as plain text there
         headers: { 'Content-Type': gas ? 'text/plain;charset=utf-8' : 'application/json' },
-        body: JSON.stringify({ messages: [...history, { role: 'me', text: q }].slice(-12), tone: settings().tone, lang: msgLang(q), memory: memory.get(), admin: isAdmin(), notes: gas ? undefined : (sharedNotes || '') }) });
+        body: JSON.stringify({ messages: [...sharedMem.tg, ...history, { role: 'me', text: q }].slice(-12), tone: settings().tone, lang: msgLang(q), memory: memory.get(), admin: isAdmin(), notes: gas ? undefined : (sharedNotes || '') }) });
       const j = await r.json().catch(() => ({}));
       if (r.status === 429 || j.error === 'busy') return { busy: Math.min(60, Math.max(5, +j.retryAfter || 20)) };
       if (!r.ok || !j.reply) return { failed: true };
@@ -1054,6 +1072,7 @@
     if (!j) return null;
     if (j.switched && !switchedShown) { switchedShown = true; sysNote(tt('Основной ИИ на лимите — ответил запасной. Разговор сохранён.')); }
     const learned = memory.apply(j.remember, j.forget);
+    sharedMem.push();
     if (learned.length) setTimeout(() => sysNote(tt('Запомнил на этом устройстве: ') + learned.join(', ') + '. ' + tt('Стереть — кнопка «Забыть меня».')), 400);
     let go = isAdmin() ? (Array.isArray(j.go) ? j.go : j.go ? [j.go] : null) : null;
     if (go && !go.length) go = null;
@@ -1088,6 +1107,7 @@
     await botReply(r.text, r);
   }
   function greet() {
+    sharedMem.load();
     if (greeted) return; greeted = true; renderChips();
     if (history.length) { history.forEach(m => addMsg(m.role === 'me' ? 'me' : 'bot', m.text)); sysNote(tt('Продолжаем с того места, где остановились.')); }
     else botReply(isAdmin() ? tt('Режим администратора. Спросите, как поменять цену, отметить «закончилось», найти заказы или брони — дам кнопки.') : settings().greeting);

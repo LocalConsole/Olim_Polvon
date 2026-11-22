@@ -7,8 +7,10 @@
     "dev": "wrangler dev --local --test-scheduled",
     "db:local": "wrangler d1 execute olim-bot --local --file=schema.sql",
     "db:remote": "wrangler d1 execute olim-bot --remote --file=schema.sql",
-    "deploy": "npm run menu && wrangler deploy",
+    "deploy": "wrangler deploy",
     "logs": "wrangler tail"
   },
-  "devDependencies": { "wrangler": "^4.166.0" }
+  "devDependencies": {
+    "wrangler": "^4.166.0"
+  }
 }

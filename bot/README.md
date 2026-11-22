@@ -29,7 +29,7 @@ node scripts/vapid.mjs                   # VAPID_PUBLIC → wrangler.toml [vars]
 npx wrangler secret put VAPID_PRIVATE    # вставьте JSON-строку целиком
 
 # в wrangler.toml → [vars] впишите DEV_IDS = "ваш Telegram id" (узнать: напишите боту /id)
-npm run deploy
+npm run deploy                           # (в репозитории после правки меню сначала: npm run menu)
 
 # один раз: ставим вебхук и меню команд
 curl -X POST https://olim-bot.abduraxmanov349.workers.dev/setup -H "X-Site-Key: <SITE_KEY>"

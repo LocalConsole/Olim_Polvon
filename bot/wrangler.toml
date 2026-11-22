@@ -16,13 +16,13 @@ ORIGINS = "https://localconsole.github.io"
 PHOTO_BASE = "https://localconsole.github.io/Olim_Polvon/assets/menu/tg/"
 BOT_USERNAME = "Olim_Polvon_yordamchi_bot"
 TZ_OFFSET = "5"                                # Tashkent, UTC+5
-VAPID_PUBLIC = ""                              # node scripts/vapid.mjs → paste VAPID_PUBLIC here, VAPID_PRIVATE as a secret
+VAPID_PUBLIC = "BHIjF5xXn8FdhLX31tURlTtkhCsUj3cpeURLPwHaAW_YaqXA6hdtos12qPpMOkxH6hS9nEB_liBA5RbD2_JIq1g"  # public half of the VAPID pair; the private one is a secret
 VAPID_SUBJECT = "mailto:admin@olimpolvon.uz"
 
 [[d1_databases]]
 binding = "DB"
 database_name = "olim-bot"
-database_id = "00000000-0000-0000-0000-000000000000"  # replace with the id printed by `wrangler d1 create olim-bot`
+database_id = "26a769d7-2aa3-4456-986f-c3a6950f6335"
 
 [triggers]
 crons = ["* * * * *"]                          # retries of undelivered messages, stale live locations, daily report

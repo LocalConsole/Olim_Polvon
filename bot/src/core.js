@@ -138,10 +138,14 @@ export async function createBooking(env, d) {
 async function refreshCards(env, ref, text, kb) {
   for (const m of await sentFor(env, ref)) await tg(env, "editMessageText", { chat_id: m.chat_id, message_id: m.msg_id, text, parse_mode: "HTML", disable_web_page_preview: true, reply_markup: kb }, { quiet: true });
 }
-async function tellGuest(env, row, key, vars, extraKb) {
+// to the guest in the bot; with `anim` the text goes as the caption of a mascot animation
+async function tellGuest(env, row, key, vars, extraKb, anim) {
   if (!row.tg_user) return [];
-  return [await enqueue(env, row.tg_user, "sendMessage", { text: t(row.lang, key, vars), parse_mode: "HTML", ...(extraKb ? { reply_markup: extraKb } : {}) }, "guest:" + key)];
+  const text = t(row.lang, key, vars), kb = extraKb ? { reply_markup: extraKb } : {};
+  if (anim) return [await enqueue(env, row.tg_user, "sendAnimation", { animation: "anim:" + anim, caption: text, parse_mode: "HTML", ...kb }, "guest:" + key)];
+  return [await enqueue(env, row.tg_user, "sendMessage", { text, parse_mode: "HTML", ...kb }, "guest:" + key)];
 }
+const ORDER_ANIM = { cooking: "cooking", courier: "courier", done: "done" };
 
 export async function setOrderStatus(env, num, status, who) {
   const o = await getOrder(env, num); if (!o) return { error: "not found" };
@@ -152,7 +156,7 @@ export async function setOrderStatus(env, num, status, who) {
   const row = await getOrder(env, num);
   await refreshCards(env, "order:" + num, orderText(row), orderKb(row));
   if (["done", "cancelled"].includes(st)) for (const m of await sentFor(env, "live:" + num)) await tg(env, "stopMessageLiveLocation", { chat_id: m.chat_id, message_id: m.msg_id }, { quiet: true });
-  const ids = await tellGuest(env, row, "status_upd", { n: num, s: t(row.lang, "st_" + st) });
+  const ids = await tellGuest(env, row, "status_upd", { n: num, s: t(row.lang, "st_" + st) }, null, ORDER_ANIM[st]);
   if (st !== "new") await pushToClient(env, row.cid, l => ({ title: pt(l, "order", { n: num }), body: pt(l, "st_" + st), url: "./?from=push", tag: "order" + num, urgent: st === "courier" }));
   await log(env, "info", "order", `#${num} -> ${st} by ${who?.name || "?"}`);
   return { row, ids };
@@ -171,7 +175,7 @@ export async function setBookingStatus(env, num, status, who, fee) {
   await refreshCards(env, "booking:" + num, bookingText(row), bookingKb(row));
   let ids = [];
   if (status === "fee") ids = await tellGuest(env, row, "b_fee", { sum: money(fee, row.lang), card: await setting(env, "card"), owner: await setting(env, "card_owner") });
-  else ids = await tellGuest(env, row, "b_upd", { n: num, d: row.day, t: row.time, s: t(row.lang, "bs_" + status) });
+  else ids = await tellGuest(env, row, "b_upd", { n: num, d: row.day, t: row.time, s: t(row.lang, "bs_" + status) }, null, status === "confirmed" ? "accepted" : null);
   if (status === "fee" || PT_B.includes(status)) await pushToClient(env, row.cid, l => ({ title: pt(l, "booking", { n: num }), body: status === "fee" ? pt(l, "fee", { sum: money(fee, l) }) : pt(l, "bs_" + status), url: "./?from=push", tag: "booking" + num }));
   await log(env, "info", "booking", `#${num} -> ${status}${fee ? " " + fee : ""} by ${who?.name || "?"}`);
   return { row, ids };
@@ -211,7 +215,7 @@ export async function setPay(env, kind, ref, ok, who) {
   const rcs = await env.DB.prepare("SELECT num FROM receipts WHERE kind=? AND ref=?").bind(kind, ref).all();
   for (const r of rcs.results || []) for (const m of await sentFor(env, "receipt:" + r.num))
     await tg(env, "editMessageReplyMarkup", { chat_id: m.chat_id, message_id: m.msg_id, reply_markup: ik([[btn(ok ? "✅ Оплата подтверждена · " + (who?.name || "") : "❌ Нет оплаты · " + (who?.name || ""), "noop")]]) }, { quiet: true });
-  const ids = await tellGuest(env, row, ok ? "pay_ok" : "pay_no", { n: ref });
+  const ids = await tellGuest(env, row, ok ? "pay_ok" : "pay_no", { n: ref }, null, ok ? "accepted" : null);
   await pushToClient(env, row.cid, l => ({ title: pt(l, kind === "booking" ? "booking" : "order", { n: ref }), body: pt(l, ok ? "pay_ok" : "pay_no"), url: "./?from=push", tag: kind + ref + "pay" }));
   await log(env, "info", "pay", `${kind} #${ref} ${ok ? "ok" : "no"} by ${who?.name || "?"}`);
   return { row, ids };

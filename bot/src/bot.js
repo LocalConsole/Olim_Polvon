@@ -42,6 +42,15 @@ function mainKb(u) {
 const MAIN_KEYS = ["m_menu", "m_cart", "m_book", "m_my", "m_info", "m_lang", "m_staff"];
 function mainKey(text) { for (const k of MAIN_KEYS) for (const l of LANGS) if (text === t(l, k)) return k; return null; }
 
+// ---------- mascot animations (mp4 on the site, Telegram file_id cached after the first send)
+async function sendAnim(env, u, name, caption, kb) {
+  const cached = await kvGet(env, "an:" + name);
+  const r = await tg(env, "sendAnimation", { chat_id: u.id, animation: cached || env.PHOTO_BASE + "anim/" + name + ".mp4", caption, parse_mode: "HTML", ...(kb ? { reply_markup: kb } : {}) }, { quiet: true });
+  if (r.ok) { if (!cached && r.result?.animation?.file_id) await kvSet(env, "an:" + name, r.result.animation.file_id); return r; }
+  if (cached) { await kvSet(env, "an:" + name, ""); return sendAnim(env, u, name, caption, kb); }
+  return send(env, u.id, caption, kb);
+}
+
 // ---------- menu: one photo message that slides through the dishes (banner → category → dish ↔ dish)
 const CAT_ICON = { shashlik: "🍢", milliy: "🍲", uygur: "🍜", salat: "🥗", yevropa: "🍝", non: "🫓", ichimlik: "🥤" };
 const LINE = "━━━━━━━━━━━━";
@@ -169,7 +178,7 @@ async function coSubmit(env, u, ctx) {
   ctx.waitUntil(flush(env, r.ids));
   await saveCart(env, u, {}); await saveState(env, u, {});
   if (s.phone && s.phone !== u.phone) await env.DB.prepare("UPDATE users SET phone=? WHERE id=?").bind(s.phone, u.id).run();
-  await send(env, u.id, s.type === "table" ? t(l, "table_ok", { n: r.row.num, t: s.table }) : t(l, "order_ok", { n: r.row.num }), mainKb(u));
+  await sendAnim(env, u, "accepted", s.type === "table" ? t(l, "table_ok", { n: r.row.num, t: s.table }) : t(l, "order_ok", { n: r.row.num }), mainKb(u));
   if (r.row.pay === "card") await send(env, u.id, t(l, "pay_card", { sum: money(r.row.total, l), card: esc(await setting(env, "card")), owner: esc(await setting(env, "card_owner")) }));
 }
 
@@ -215,7 +224,7 @@ async function bkSubmit(env, u, ctx) {
   ctx.waitUntil(flush(env, r.ids));
   await saveState(env, u, {});
   if (s.phone !== u.phone) await env.DB.prepare("UPDATE users SET phone=? WHERE id=?").bind(s.phone, u.id).run();
-  return send(env, u.id, t(u.lang, "b_ok", { n: r.row.num }), mainKb(u));
+  return sendAnim(env, u, "booking", t(u.lang, "b_ok", { n: r.row.num }), mainKb(u));
 }
 
 // ---------- guest: my orders
@@ -419,13 +428,13 @@ export async function handleUpdate(env, upd, ctx) {
       }
       if (/^c_[\w-]{6,40}$/.test(p)) { // opened from the site: one memory for the site and the bot
         await memLink(env, u, p.slice(2));
-        await send(env, u.id, t(l, "linked"), mainKb(u));
+        await sendAnim(env, u, "hello", t(l, "linked"), mainKb(u));
         if (u.isNew) return send(env, u.id, t(l, "pick_lang"), ik([[btn("O'zbekcha", "lg:uz"), btn("Русский", "lg:ru"), btn("English", "lg:en")]]));
         return;
       }
       if (/^table_?\d{1,3}$/i.test(p)) await kvSet(env, "table:" + u.id, JSON.stringify({ n: p.replace(/\D/g, ""), at: now() }));
       await saveState(env, u, {});
-      await putPhoto(env, u, null, "_banner", t(l, "hello"), mainKb(u));
+      await sendAnim(env, u, "hello", t(l, "hello"), mainKb(u));
       if (u.isNew) return send(env, u.id, t(l, "pick_lang"), ik([[btn("O'zbekcha", "lg:uz"), btn("Русский", "lg:ru"), btn("English", "lg:en")]]));
       if (/^table/.test(p)) return showCats(env, u);
       if (p === "book") return bkStart(env, u);

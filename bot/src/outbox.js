@@ -22,15 +22,28 @@ async function resolvePhoto(env, p) {
   return { payload: rest, file: { field: "photo", name: `receipt-${rc.num}.jpg`, bytes }, receipt: rc.num };
 }
 
+// "anim:cooking" → the cached Telegram file_id or the mp4 on the site
+async function resolveAnim(env, p) {
+  if (typeof p.animation !== "string" || !p.animation.startsWith("anim:")) return { p };
+  const name = p.animation.slice(5), cached = (await env.DB.prepare("SELECT v FROM kv WHERE k=?").bind("an:" + name).first())?.v;
+  return { p: { ...p, animation: cached || env.PHOTO_BASE + "anim/" + name + ".mp4" }, name, cached };
+}
 export async function deliver(env, row) {
-  let p = J(row.payload, {}), file, receipt;
+  let p = J(row.payload, {}), file, receipt, anim;
+  if (row.method === "sendAnimation") { anim = await resolveAnim(env, p); p = anim.p; }
   if (row.method === "sendPhoto") {
     const r = await resolvePhoto(env, p);
     if (r.missing) { row.method = "sendMessage"; p = { chat_id: p.chat_id, text: p.caption || "чек", parse_mode: "HTML", reply_markup: p.reply_markup }; }
     else ({ payload: p, file, receipt } = r);
   }
-  const res = await tg(env, row.method, p, { file, quiet: true });
+  let res = await tg(env, row.method, p, { file, quiet: true });
+  if (!res.ok && anim && res.error_code === 400) { // the animation could not be used: send the same text without it
+    if (anim.cached) await env.DB.prepare("DELETE FROM kv WHERE k=?").bind("an:" + anim.name).run();
+    row.method = "sendMessage"; p = { chat_id: p.chat_id, text: p.caption || "", parse_mode: p.parse_mode, reply_markup: p.reply_markup };
+    res = await tg(env, "sendMessage", p, { quiet: true });
+  }
   if (res.ok) {
+    if (anim && !anim.cached && res.result?.animation?.file_id) await env.DB.prepare("INSERT INTO kv(k,v) VALUES(?,?) ON CONFLICT(k) DO UPDATE SET v=excluded.v").bind("an:" + anim.name, res.result.animation.file_id).run();
     const msg = Array.isArray(res.result) ? res.result[0] : res.result;
     if (receipt && msg?.photo) {
       const fid = msg.photo[msg.photo.length - 1].file_id;

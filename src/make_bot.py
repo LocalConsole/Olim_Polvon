@@ -48,6 +48,35 @@ try:
         src, dst = MENU_DIR / f"{it['id']}.webp", TG_DIR / f"{it['id']}.jpg"
         if dst.exists() and dst.stat().st_mtime >= src.stat().st_mtime: continue
         Image.open(src).convert("RGB").save(dst, "JPEG", quality=74, optimize=True, progressive=True); n += 1
+    # banner for the menu and the greeting, and a card for dishes without a photo (both from the logo + real dish photos)
+    from PIL import ImageDraw
+    BG = (18, 16, 14)
+    logo = Image.open(ROOT / "assets" / "icon-512.png").convert("RGBA")
+    def circle(img, size):
+        img = img.convert("RGB"); w, h = img.size; k = min(w, h)
+        img = img.crop(((w - k) // 2, (h - k) // 2, (w + k) // 2, (h + k) // 2)).resize((size, size), Image.LANCZOS)
+        m = Image.new("L", (size * 4, size * 4), 0); ImageDraw.Draw(m).ellipse((0, 0, size * 4 - 1, size * 4 - 1), fill=255)
+        return img, m.resize((size, size), Image.LANCZOS)
+    ban = TG_DIR / "_banner.jpg"
+    if not ban.exists():
+        W, H = 1280, 720; c = Image.new("RGB", (W, H), BG); d = ImageDraw.Draw(c)
+        lg = logo.resize((520, 520), Image.LANCZOS); c.paste(lg, (70, (H - 520) // 2), lg)
+        picks = [i for i in items if i["ph"] and i["cat"] in ("milliy", "uygur", "non", "shashlik")]
+        chosen = []
+        for cat in ("milliy", "uygur", "shashlik", "non"):
+            x = next((i for i in picks if i["cat"] == cat and i not in chosen), None)
+            if x: chosen.append(x)
+        pos = [(700, 70), (980, 120), (700, 380), (980, 420)]
+        for it, (x, y) in zip(chosen, pos):
+            im, m = circle(Image.open(MENU_DIR / f"{it['id']}.webp"), 250)
+            d.ellipse((x - 9, y - 9, x + 259, y + 259), fill=(230, 166, 60))
+            d.ellipse((x - 4, y - 4, x + 254, y + 254), fill=(244, 236, 224))
+            c.paste(im, (x, y), m)
+        c.save(ban, "JPEG", quality=85, optimize=True, progressive=True); n += 1
+    none = TG_DIR / "_none.jpg"
+    if not none.exists():
+        c = Image.new("RGB", (600, 450), BG); lg = logo.resize((360, 360), Image.LANCZOS); c.paste(lg, (120, 45), lg)
+        c.save(none, "JPEG", quality=85); n += 1
     print(f"menu.gen.js: {len(items)} dishes, {n} new tg jpgs")
 except ImportError:
     print("menu.gen.js written; Pillow missing, tg jpgs skipped (pip install pillow)")

@@ -42,48 +42,81 @@ function mainKb(u) {
 const MAIN_KEYS = ["m_menu", "m_cart", "m_book", "m_my", "m_info", "m_lang", "m_staff"];
 function mainKey(text) { for (const k of MAIN_KEYS) for (const l of LANGS) if (text === t(l, k)) return k; return null; }
 
-// ---------- menu
+// ---------- menu: one photo message that slides through the dishes (banner → category → dish ↔ dish)
+const CAT_ICON = { shashlik: "🍢", milliy: "🍲", uygur: "🍜", salat: "🥗", yevropa: "🍝", non: "🫓", ichimlik: "🥤" };
+const LINE = "━━━━━━━━━━━━";
+const catItems = ci => ITEMS.map((d, i) => ({ d, i })).filter(x => x.d.cat === CATS[ci]?.id);
+const fmtK = p => (p / 1000).toLocaleString("ru-RU").replace(/\s/g, " ") + "k";
+function cartLine(u) {
+  const n = cartCount(u.cartObj); if (!n) return "";
+  return `🛒 ${t(u.lang, "m_cart").replace(/^\S+\s/, "")}: ${n} · ${money(cartTotal(u.cartObj), u.lang)}`;
+}
+// photo by cached Telegram file_id (fast) or by URL; edits the same message when possible
+async function putPhoto(env, u, msg, key, caption, kb) {
+  const cached = await kvGet(env, "ph:" + key);
+  const src = cached || env.PHOTO_BASE + key + ".jpg";
+  let r = msg ? await tg(env, "editMessageMedia", { chat_id: u.id, message_id: msg, media: { type: "photo", media: src, caption, parse_mode: "HTML" }, reply_markup: kb }, { quiet: true }) : null;
+  if (r && !r.ok && /not modified/.test(r.description || "")) return r;
+  if (!r || !r.ok) r = await tg(env, "sendPhoto", { chat_id: u.id, photo: src, caption, parse_mode: "HTML", reply_markup: kb }, { quiet: true });
+  if (!r.ok && cached) { await kvSet(env, "ph:" + key, ""); return putPhoto(env, u, msg, key, caption, kb); }  // stale file_id
+  if (!r.ok) return send(env, u.id, caption, kb);                                                              // no photo at all: text
+  const ph = r.result?.photo; if (!cached && ph?.length) await kvSet(env, "ph:" + key, ph[ph.length - 1].file_id);
+  return r;
+}
 async function showCats(env, u, msg) {
-  const rows = []; for (let i = 0; i < CATS.length; i += 2) rows.push(CATS.slice(i, i + 2).map((c, j) => btn(c.n[li(u.lang)], "c:" + (i + j))));
-  const n = cartCount(u.cartObj); if (n) rows.push([btn(t(u.lang, "cart_n", { n }), "k:show")]);
-  return msg ? edit(env, u.id, msg, t(u.lang, "pick_cat"), ik(rows)) : send(env, u.id, t(u.lang, "pick_cat"), ik(rows));
+  const l = u.lang, rows = [];
+  const b = (c, i) => btn(`${CAT_ICON[c.id] || "🍽"} ${c.n[li(l)]} · ${catItems(i).length}`, "c:" + i);
+  for (let i = 0; i < CATS.length; i += 2) rows.push(CATS.slice(i, i + 2).map((c, k) => b(c, i + k)));
+  if (cartCount(u.cartObj)) rows.push([btn(cartLine(u), "k:show")]);
+  return putPhoto(env, u, msg, "_banner", `🍽 <b>${t(l, "m_menu").replace(/^\S+\s/, "")} · Olim Polvon</b>\n${t(l, "pick_cat")}`, ik(rows));
 }
-async function showCat(env, u, ci, msg) {
-  const c = CATS[ci]; if (!c) return showCats(env, u, msg);
-  const list = ITEMS.map((d, i) => ({ d, i })).filter(x => x.d.cat === c.id);
-  const text = `<b>${esc(c.n[li(u.lang)])}</b>\n` + list.map(({ d }) => `• ${esc(name(d, u.lang))} — ${d.p != null ? money(d.p, u.lang) : t(u.lang, "no_price")}`).join("\n");
-  const rows = list.map(({ d, i }) => [btn(`${u.cartObj[i] ? "✓ " : ""}${name(d, u.lang)}${d.p != null ? " · " + Math.round(d.p / 1000) + "k" : ""}`, "d:" + i)]);
-  const n = cartCount(u.cartObj);
-  rows.push([btn(t(u.lang, "to_cats"), "c:list"), ...(n ? [btn(t(u.lang, "cart_n", { n }), "k:show")] : [])]);
-  return msg ? edit(env, u.id, msg, text, ik(rows)) : send(env, u.id, text, ik(rows));
+function dishCard(u, ci, pos) {
+  const l = u.lang, list = catItems(ci), N = list.length; pos = ((pos % N) + N) % N;
+  const { d, i } = list[pos], L = li(l), q = u.cartObj[i] || 0, c = CATS[ci];
+  const caption = [
+    `${CAT_ICON[c.id] || "🍽"} ${esc(c.n[L])}  ·  ${pos + 1}/${N}`, LINE,
+    `<b>${esc(d.n[L] || d.n[0])}</b>${d.u[L] ? `  <i>${esc(d.u[L])}</i>` : ""}`,
+    d.d[L] ? `\n${esc(d.d[L])}` : "",
+    `\n💰 <b>${d.p != null ? money(d.p, l) : t(l, "no_price")}</b>${q ? `   ·   🛒 ×${q}` : ""}`,
+    d.p == null ? `<i>${t(l, "no_price_hint")}</i>` : "",
+    cartCount(u.cartObj) ? `\n${cartLine(u)}` : "",
+  ].filter(Boolean).join("\n");
+  const rows = [[btn("◀️", `v:${ci}:${pos - 1}`), btn(`${pos + 1} / ${N}`, `l:${ci}`), btn("▶️", `v:${ci}:${pos + 1}`)]];
+  if (d.p != null) rows.push(q ? [btn("➖", `q:${i}:-`), btn(`🛒 ${q}`, "k:show"), btn("➕", `q:${i}:+`)] : [btn(`➕ ${t(l, "add_btn")} · ${fmtK(d.p)}`, `q:${i}:+`)]);
+  rows.push([btn("📋 " + t(l, "list_btn"), `l:${ci}`), btn("🗂 " + t(l, "to_cats").replace(/^←\s*/, ""), "c:list")]);
+  if (cartCount(u.cartObj)) rows.push([btn(`✅ ${t(l, "checkout").replace(/^\S+\s/, "")} · ${money(cartTotal(u.cartObj), l)}`, "k:show")]);
+  return { key: d.ph ? d.id : "_none", caption, kb: ik(rows), pos };
 }
-function dishCaption(d, u) {
-  const l = li(u.lang), q = u.cartObj[ITEMS.indexOf(d)] || 0;
-  return `<b>${esc(d.n[l])}</b>${d.u[l] ? " · " + esc(d.u[l]) : ""}\n${d.d[l] ? esc(d.d[l]) + "\n" : ""}<b>${d.p != null ? money(d.p, u.lang) : t(u.lang, "no_price")}</b>${q ? `\n🛒 ×${q}` : ""}${d.p == null ? "\n" + t(u.lang, "no_price_hint") : ""}`;
+async function showCard(env, u, ci, pos, msg) {
+  if (!CATS[ci] || !catItems(ci).length) return showCats(env, u, msg);
+  const c = dishCard(u, ci, pos);
+  return putPhoto(env, u, msg, c.key, c.caption, c.kb);
 }
-function dishKb(d, i, u) {
-  const q = u.cartObj[i] || 0, n = cartCount(u.cartObj), ci = CATS.findIndex(c => c.id === d.cat);
-  const rows = [];
-  if (d.p != null) rows.push(q ? [btn("−", `q:${i}:-`), btn(`${q}`, "noop"), btn("+", `q:${i}:+`)] : [btn("➕ " + t(u.lang, "m_cart").replace(/^\S+\s/, ""), `q:${i}:+`)]);
-  rows.push([btn(t(u.lang, "back"), `x:${ci}`), ...(n ? [btn(t(u.lang, "cart_n", { n }), "k:show")] : [])]);
-  return ik(rows);
+// the whole section as a list (quick scan), each dish opens its card
+async function showList(env, u, ci, msg) {
+  const l = u.lang, L = li(l), c = CATS[ci], list = catItems(ci);
+  let text = `${CAT_ICON[c.id] || "🍽"} <b>${esc(c.n[L])}</b>\n${LINE}\n` + list.map(({ d, i }) => `${u.cartObj[i] ? "✅" : "▫️"} ${esc(d.n[L] || d.n[0])} — <b>${d.p != null ? money(d.p, l) : t(l, "no_price")}</b>`).join("\n");
+  if (text.length > 1000) text = text.slice(0, 990) + "…";
+  const rows = []; for (let k = 0; k < list.length; k += 3) rows.push(list.slice(k, k + 3).map(({ d }, m) => btn(`${k + m + 1}. ${(d.n[L] || d.n[0]).slice(0, 16)}`, `v:${ci}:${k + m}`)));
+  rows.push([btn("🗂 " + t(l, "to_cats").replace(/^←\s*/, ""), "c:list"), ...(cartCount(u.cartObj) ? [btn(cartLine(u), "k:show")] : [])]);
+  return putPhoto(env, u, msg, "_banner", text, ik(rows));
 }
+// a dish from the assistant's suggestion: open its card
 async function showDish(env, u, i) {
   const d = ITEMS[i]; if (!d) return;
-  if (!d.ph) return send(env, u.id, dishCaption(d, u), dishKb(d, i, u));
-  const cached = await kvGet(env, "ph:" + d.id);
-  const r = await tg(env, "sendPhoto", { chat_id: u.id, photo: cached || (env.PHOTO_BASE + d.id + ".jpg"), caption: dishCaption(d, u), parse_mode: "HTML", reply_markup: dishKb(d, i, u) });
-  if (r.ok && !cached) { const p = r.result.photo; if (p?.length) await kvSet(env, "ph:" + d.id, p[p.length - 1].file_id); }
-  if (!r.ok) return send(env, u.id, dishCaption(d, u), dishKb(d, i, u));
+  const ci = CATS.findIndex(c => c.id === d.cat);
+  return showCard(env, u, ci, catItems(ci).findIndex(x => x.i === i));
 }
 
 // ---------- cart
 function cartView(u) {
-  const lines = cartLines(u.cartObj);
-  if (!lines.length) return { text: t(u.lang, "cart_empty"), kb: ik([[btn(t(u.lang, "m_menu"), "c:list")]]) };
-  const text = t(u.lang, "cart_title") + "\n" + lines.map(l => `• ${esc(name(l.d, u.lang))} ×${l.q} — ${money(l.d.p * l.q, u.lang)}`).join("\n") + `\n\n<b>${t(u.lang, "total")}: ${money(cartTotal(u.cartObj), u.lang)}</b>`;
-  const rows = lines.map(l => [btn("−", `k:${l.i}:-`), btn(name(l.d, u.lang).slice(0, 22) + " ×" + l.q, "noop"), btn("+", `k:${l.i}:+`)]);
-  rows.push([btn(t(u.lang, "checkout"), "k:co")], [btn(t(u.lang, "m_menu"), "c:list"), btn(t(u.lang, "clear"), "k:clear")]);
+  const l = u.lang, lines = cartLines(u.cartObj);
+  if (!lines.length) return { text: t(l, "cart_empty"), kb: ik([[btn(t(l, "m_menu"), "c:list")]]) };
+  const text = [t(l, "cart_title"), LINE,
+    ...lines.map((x, k) => `${k + 1}. ${esc(name(x.d, l))}\n     ${x.q} × ${money(x.d.p, l)} = <b>${money(x.d.p * x.q, l)}</b>`),
+    LINE, `💰 ${t(l, "total")}: <b>${money(cartTotal(u.cartObj), l)}</b>`, `<i>${t(l, "delivery_note")}</i>`].join("\n");
+  const rows = lines.map(x => [btn("➖", `k:${x.i}:-`), btn(`${name(x.d, l).slice(0, 20)} ×${x.q}`, `d:${x.i}`), btn("➕", `k:${x.i}:+`)]);
+  rows.push([btn(t(l, "checkout"), "k:co")], [btn("🍽 " + t(l, "m_menu").replace(/^\S+\s/, ""), "c:list"), btn(t(l, "clear"), "k:clear")]);
   return { text, kb: ik(rows) };
 }
 const showCart = (env, u, msg) => { const v = cartView(u); return msg ? edit(env, u.id, msg, v.text, v.kb) : send(env, u.id, v.text, v.kb); };
@@ -392,7 +425,7 @@ export async function handleUpdate(env, upd, ctx) {
       }
       if (/^table_?\d{1,3}$/i.test(p)) await kvSet(env, "table:" + u.id, JSON.stringify({ n: p.replace(/\D/g, ""), at: now() }));
       await saveState(env, u, {});
-      await send(env, u.id, t(l, "hello"), mainKb(u));
+      await putPhoto(env, u, null, "_banner", t(l, "hello"), mainKb(u));
       if (u.isNew) return send(env, u.id, t(l, "pick_lang"), ik([[btn("O'zbekcha", "lg:uz"), btn("Русский", "lg:ru"), btn("English", "lg:en")]]));
       if (/^table/.test(p)) return showCats(env, u);
       if (p === "book") return bkStart(env, u);
@@ -497,15 +530,19 @@ async function onCallback(env, q, ctx) {
   if (d === "noop") return ok();
   if (a === "lg" && LANGS.includes(b)) { await env.DB.prepare("UPDATE users SET lang=? WHERE id=?").bind(b, u.id).run(); u.lang = b; await ok("✓"); await tg(env, "deleteMessage", { chat_id: u.id, message_id: msg }, { quiet: true }); return send(env, u.id, t(b, "hello"), mainKb(u)); }
   // menu
-  if (a === "c") { await ok(); return b === "list" ? showCats(env, u, msg) : showCat(env, u, +b, msg); }
+  const pm = q.message?.photo ? msg : null;   // photo message: edit it in place
+  if (a === "c") { await ok(); return b === "list" ? showCats(env, u, pm) : showCard(env, u, +b, 0, pm); }
+  if (a === "v") { await ok(); return showCard(env, u, +b, +c, pm); }
+  if (a === "l") { await ok(); return showList(env, u, +b, pm); }
   if (a === "x") { await ok(); await tg(env, "deleteMessage", { chat_id: u.id, message_id: msg }, { quiet: true }); return; }
   if (a === "d") { await ok(); return showDish(env, u, +b); }
   if (a === "q") {
     const i = +b, dd = ITEMS[i]; if (!dd || dd.p == null) return ok(t(l, "no_price_hint"), true);
     u.cartObj[i] = Math.max(0, (u.cartObj[i] || 0) + (c === "+" ? 1 : -1)); if (!u.cartObj[i]) delete u.cartObj[i];
-    await saveCart(env, u, u.cartObj); await ok(c === "+" ? t(l, "added", { d: name(dd, l) }) : "−");
-    if (q.message?.photo) return tg(env, "editMessageCaption", { chat_id: u.id, message_id: msg, caption: dishCaption(dd, u), parse_mode: "HTML", reply_markup: dishKb(dd, i, u) }, { quiet: true });
-    return edit(env, u.id, msg, dishCaption(dd, u), dishKb(dd, i, u));
+    await saveCart(env, u, u.cartObj); await ok(c === "+" ? "🛒 " + t(l, "added", { d: name(dd, l) }) : "➖");
+    const ci = CATS.findIndex(x => x.id === dd.cat), card = dishCard(u, ci, catItems(ci).findIndex(x => x.i === i));
+    if (pm) return tg(env, "editMessageCaption", { chat_id: u.id, message_id: msg, caption: card.caption, parse_mode: "HTML", reply_markup: card.kb }, { quiet: true });
+    return showCard(env, u, ci, card.pos);
   }
   if (a === "k") {
     if (b === "show") { await ok(); return showCart(env, u); }

@@ -139,7 +139,7 @@
         <h2>${x.kind === 'order' ? esc(tt('Заказ')) : esc(tt('Бронь'))}${x.num ? ' №' + x.num : ''}</h2>
         <p class="trk-big">${esc(label(x))}</p>${x.kind === 'booking' && x.date ? `<p class="co-hint">${esc(x.date)} · ${esc(x.time || '')}${x.fee ? ' · ' + esc(tt('стоимость брони')) + ' ' + fmt(x.fee) : ''}</p>` : ''}
         ${steps(x)}${payHtml(x)}${FINAL[x.kind].includes(x.status) ? '' : pushOffer()}
-        <div class="co-done-actions"><a class="btn btn--ghost" href="tel:+998953434343">${esc(tt('Позвонить'))}</a><a class="btn btn--ghost" href="https://t.me/Olimpolvon_bot" target="_blank" rel="noopener">Telegram</a>${FINAL[x.kind].includes(x.status) || x.failed ? `<button type="button" class="mini-btn" data-hide="${esc(x.id)}">${esc(tt('Скрыть'))}</button>` : ''}</div></div>`;
+        <div class="co-done-actions"><a class="btn btn--ghost" href="tel:+998953434343">${esc(tt('Позвонить'))}</a><a class="btn btn--ghost" href="https://t.me/Olim_Polvon_yordamchi_bot" target="_blank" rel="noopener">Telegram</a>${FINAL[x.kind].includes(x.status) || x.failed ? `<button type="button" class="mini-btn" data-hide="${esc(x.id)}">${esc(tt('Скрыть'))}</button>` : ''}</div></div>`;
       if (!dlg.open) dlg.showModal();
       window.POLVON_PUSH?.draw();
     }
@@ -573,7 +573,7 @@
       if (f.length) return { text: f.map(d => `${d.name}: ${d.price ? fmt(d.price) : tt('цена уточняется')}`).join('; ') + '.', cards: f };
     }
     if (has('брон', 'стол', 'зарезерв', 'место', 'band', 'stol', 'book', 'reserv', 'table')) return { text: tt('Конечно! Откройте форму брони: дата, время и число гостей — займёт минуту. Администратор перезвонит, подтвердит и назовёт стоимость брони. Свою еду, торты и напитки приносить нельзя — торт можно заказать у нас.'), link: [tt('Перейти к брони'), 'contact.html#booking'] };
-    if (has('достав', 'привез', 'на дом', 'yetkaz', 'с собой', 'навынос', 'deliver', 'takeaway', 'olib ket')) return { text: tt('Доставка есть: звоните +998 90 916 77 74 или +998 97 766 99 88, либо закажите в Telegram-боте @Olimpolvon_bot. Можно и забрать с собой.'), link: [tt('Открыть Telegram-бот'), 'https://t.me/Olimpolvon_bot'] };
+    if (has('достав', 'привез', 'на дом', 'yetkaz', 'с собой', 'навынос', 'deliver', 'takeaway', 'olib ket')) return { text: tt('Доставка есть: звоните +998 90 916 77 74 или +998 97 766 99 88, либо закажите в Telegram-боте @Olim_Polvon_yordamchi_bot. Можно и забрать с собой.'), link: [tt('Открыть Telegram-бот'), 'https://t.me/Olim_Polvon_yordamchi_bot'] };
     if (has('остр', 'перц', 'пикант', 'spic', 'hot', 'achchiq')) return { text: tt('Если любите поострее — ковурма лагман, гушт сай и острые колбаски.'), cards: pick(['Ковурма лагман', 'Гушт сай', 'Колбаски острые']) };
     if (has('компан', 'много', 'банкет', 'день рожд', 'праздн', 'семь', 'group', 'party', 'family', 'davra', 'oila', 'bayram')) return { text: tt('На компанию берут шилпилдок на большом блюде, норин на килограмм и шашлыки.'), cards: pick(['Шилпилдок, среднее блюдо', 'Норин', 'Наполеон']) };
     if (has('час', 'работа', 'открыт', 'закры', 'когда', 'hour', 'open', 'close', 'soat', 'vaqt', 'ochiq')) return { text: tt('Мы работаем каждый день. С утра — илик шурпа, нохат шурак и халим, вечером — шашлыки на углях.') };
@@ -887,7 +887,7 @@
       ${o.pay === 'transfer' ? `<div class="co-pay" data-pay="${esc(o.id)}"></div>` : ''}
       ${o.type !== 'table' ? pushOffer() : ''}
       <p class="co-summary">${esc(text)}</p>
-      <div class="co-done-actions"><a class="btn" href="https://t.me/Olimpolvon_bot" target="_blank" rel="noopener" data-co-tg>${esc(tt('Продублировать в Telegram'))}</a><a class="btn btn--ghost" href="tel:+998909167774">${esc(tt('Позвонить'))}</a></div></div>`;
+      <div class="co-done-actions"><a class="btn" href="https://t.me/Olim_Polvon_yordamchi_bot" target="_blank" rel="noopener" data-co-tg>${esc(tt('Продублировать в Telegram'))}</a><a class="btn btn--ghost" href="tel:+998909167774">${esc(tt('Позвонить'))}</a></div></div>`;
     co.querySelector('[data-co-tg]')?.addEventListener('click', () => { navigator.clipboard?.writeText(text).then(() => toast(tt('Заказ скопирован — вставьте его в Telegram-бот'))).catch(() => {}); });
     if (o.live) startLive(o.id);
     co.querySelector('h2').focus();

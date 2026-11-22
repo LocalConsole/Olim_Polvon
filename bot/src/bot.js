@@ -22,9 +22,12 @@ async function upsertUser(env, from) {
   if (devIds(env).includes(from.id) && u.role !== "dev") { await env.DB.prepare("UPDATE users SET role='dev' WHERE id=?").bind(from.id).run(); u.role = "dev"; }
   u.isNew = u.created === u.seen;
   u.st = J(u.state, {}); u.cartObj = J(u.cart, {});
+  if (u.st.f && (!u.st.at || now() - u.st.at > 30 * 60e3)) u.st = {};   // a forgotten dialog does not swallow new messages
   return u;
 }
-const saveState = (env, u, st) => { u.st = st; return env.DB.prepare("UPDATE users SET state=? WHERE id=?").bind(JSON.stringify(st || {}), u.id).run(); };
+const saveState = (env, u, st) => { if (st && st.f) st.at = now(); u.st = st; return env.DB.prepare("UPDATE users SET state=? WHERE id=?").bind(JSON.stringify(st || {}), u.id).run(); };
+// a question in the middle of a dialog («а доставка бесплатная?») goes to the assistant, the step is asked again
+const isQuestion = t => /\?\s*$/.test(t) || /^(а |а\?|как|что|где|когда|сколько|можно|есть ли|почему|зачем|ты |nima|qanday|qayer|qachon|qancha|bormi|mumkinmi|nega|how|what|where|when|why|can |is there|do you)/i.test(t.trim());
 const saveCart = (env, u, c) => { u.cartObj = c; return env.DB.prepare("UPDATE users SET cart=? WHERE id=?").bind(JSON.stringify(c), u.id).run(); };
 const cartCount = c => Object.values(c).reduce((a, b) => a + b, 0);
 const cartLines = c => Object.entries(c).map(([i, q]) => ({ d: ITEMS[+i], i: +i, q })).filter(x => x.d && x.d.p != null && x.q > 0);
@@ -458,10 +461,14 @@ export async function handleUpdate(env, upd, ctx) {
     s.phone = p.startsWith("+") || p.length < 12 ? p : "+" + p; await saveState(env, u, s); await send(env, u.id, "📱 ✓", noKb);
     return s.f === "co" ? coNext(env, u) : bkNext(env, u);
   }
+  if ((s.f === "co" || s.f === "bk") && s.step !== "confirm" && isQuestion(text)) {
+    await aiReply(env, u, text, ctx);
+    return s.f === "co" ? coNext(env, u) : bkNext(env, u);
+  }
   if (s.f === "co") {
     if (s.step === "loc") { s.address = text.slice(0, 200); s.flat = ""; await saveState(env, u, s); await send(env, u.id, "🏠 ✓", noKb); return coNext(env, u); }
     if (s.step === "flat") { s.flat = text.slice(0, 120); await saveState(env, u, s); return coNext(env, u); }
-    if (s.step === "time") { const m2 = /(\d{1,2})[:.\s-]?(\d{2})?/.exec(text); if (!m2) return send(env, u.id, t(l, "ask_time")); s.when = `${m2[1].padStart(2, "0")}:${m2[2] || "00"}`; await saveState(env, u, s); return coNext(env, u); }
+    if (s.step === "time") { const m2 = /^\D*(\d{1,2})(?:[:.\s-]?(\d{2}))?\D*$/.exec(text); if (!m2 || +m2[1] > 23 || +(m2[2] || 0) > 59) return send(env, u.id, t(l, "ask_time")); s.when = `${m2[1].padStart(2, "0")}:${m2[2] || "00"}`; await saveState(env, u, s); return coNext(env, u); }
     if (s.step === "note") { s.note = text.slice(0, 300); await saveState(env, u, s); return coNext(env, u); }
   }
   if (s.f === "bk") {

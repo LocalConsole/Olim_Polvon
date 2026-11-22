@@ -76,6 +76,18 @@ async function groq(env, sys, msgs) {
   }
   throw new Error("groq:" + err);
 }
+// Cloudflare Workers AI: built into the account, no key, free daily quota — the last safety net
+async function workersAI(env, sys, msgs) {
+  const model = env.CF_MODEL || "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
+  const r = await Promise.race([
+    env.AI.run(model, { messages: [{ role: "system", content: sys + "\nОтвечай ТОЛЬКО JSON-объектом." }, ...msgs], max_tokens: 500, temperature: 0.6, response_format: { type: "json_object" } }),
+    new Promise((_, no) => setTimeout(() => no(new Error("cf timeout")), 9000)),
+  ]);
+  let raw = typeof r?.response === "string" ? r.response : r?.response ? JSON.stringify(r.response) : "";
+  const m = raw.match(/\{[\s\S]*\}/); if (m) raw = m[0];
+  if (!raw) throw new Error("cf empty");
+  return { raw, provider: "cf:" + model.split("/").pop() };
+}
 async function gemini(env, sys, msgs) {
   const model = env.MODEL || "gemini-3.5-flash-lite";
   const r = await fetch(`${env.GEMINI_API || "https://generativelanguage.googleapis.com"}/v1beta/models/${model}:generateContent`, {
@@ -98,7 +110,7 @@ export async function ask(env, role, text, hist = []) {
     .replace("{DATA}", await staffData(env, role)).replace("{DEVCMD}", role === "dev" ? ", /health, /logs, /test" : "").replace("{DEVSHOW}", role === "dev" ? ', "health", "logs"' : "");
   const msgs = [...hist.slice(-6), { role: "user", content: text.slice(0, 600) + hint(text) }];
   let res, errs = [];
-  for (const f of [env.GROQ_KEY && groq, env.AI_KEY && gemini].filter(Boolean)) {
+  for (const f of [env.GROQ_KEY && groq, env.AI_KEY && gemini, env.AI && workersAI].filter(Boolean)) {
     try { res = await f(env, sys, msgs); break; } catch (e) { errs.push(String(e.message || e)); }
   }
   const ms = now() - t0;

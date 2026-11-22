@@ -24,6 +24,10 @@ binding = "DB"
 database_name = "olim-bot"
 database_id = "26a769d7-2aa3-4456-986f-c3a6950f6335"
 
+# Cloudflare Workers AI — third AI after Groq and Gemini, no key needed
+[ai]
+binding = "AI"
+
 [triggers]
 crons = ["* * * * *"]                          # retries of undelivered messages, stale live locations, daily report
 

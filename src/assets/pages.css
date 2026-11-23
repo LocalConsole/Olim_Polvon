@@ -343,6 +343,7 @@
 @media (hover: hover) and (pointer: fine) { .ai-chips button:hover { border-color: var(--gold); color: var(--gold-2); } }
 .ai-form { display: flex; gap: 8px; padding: 12px 12px 8px; border-top: 1px solid var(--line); }
 .ai-form input { flex: 1; min-width: 0; height: 48px; border-radius: 999px; border: 1px solid var(--line-strong); background: var(--bg); padding: 0 18px; font-size: 15px; color: var(--ivory); }
+@media (max-width: 520px) { .ai-form input { font-size: 16px; } } /* 16px: iPhone does not zoom the page on focus */
 .ai-form input:focus { outline: none; border-color: var(--gold); box-shadow: 0 0 0 3px rgba(230, 166, 60, .2); }
 .ai-send { width: 48px; height: 48px; border-radius: 50%; border: 0; background: var(--gold); color: var(--ink); display: grid; place-items: center; transition: transform 160ms var(--ease-out); }
 .ai-send:active { transform: scale(0.92); }

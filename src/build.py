@@ -261,7 +261,7 @@ def head(page, title, desc, path, schemas, og_img="share.jpg", noindex=False, pr
 <html lang="ru" class="no-js" data-page="{page}" data-api="{SITE['api_endpoint']}">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
 <title>{html.escape(title)}</title>
 <meta name="description" content="{html.escape(desc)}">
 {robots}

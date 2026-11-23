@@ -620,6 +620,20 @@
   }
 
   const scrollDown = () => { msgs.scrollTop = msgs.scrollHeight; };
+  // phone keyboard: the panel shrinks to the part of the screen above the keyboard, the last message stays in sight
+  if (window.visualViewport && panel) {
+    const vv = window.visualViewport, mq = matchMedia('(max-width: 520px)');
+    const fit = () => {
+      if (!mq.matches || !root.classList.contains('ai-open') || panel.classList.contains('ai-panel--inline')) { panel.style.height = panel.style.bottom = ''; return; }
+      const kb = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+      if (kb < 80) { panel.style.height = panel.style.bottom = ''; return; }   // no keyboard
+      panel.style.height = Math.round(vv.height) + 'px'; panel.style.bottom = Math.round(kb) + 'px';
+      requestAnimationFrame(scrollDown);
+    };
+    vv.addEventListener('resize', fit); vv.addEventListener('scroll', fit);
+    panel.addEventListener('focusin', () => setTimeout(fit, 250));
+    panel.addEventListener('focusout', () => setTimeout(fit, 250));
+  }
   function addMsg(who, text) {
     const m = document.createElement('div'); m.className = `msg msg--${who} pop`; m.textContent = text;
     msgs.append(m); scrollDown(); return m;

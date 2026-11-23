@@ -8,6 +8,8 @@ ADMIN = re.search(r'^const ADMIN = (".*?");$', w, re.M | re.S).group(1)
 gas = r'''// Olim Polvon — AI middleman for Google Apps Script (backup to the Cloudflare Worker).
 // Project Settings → Script Properties: AI_KEY = Gemini key, GROQ_KEY = Groq key.
 // Deploy → New deployment → Web app → Execute as: Me, Who has access: Anyone.
+// Orders/bookings relay to the bot (workers.dev is blocked in Uzbekistan, script.google.com is not):
+//   BOT_URL = https://olim-bot.<account>.workers.dev   SITE_KEY = the same value as `wrangler secret put SITE_KEY`
 const SYSTEM = __SYSTEM__;
 const TONES = __TONES__;
 const ADMIN = __ADMIN__;
@@ -23,6 +25,24 @@ function doPost(e) {
 
 function out_(obj) { return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON); }
 
+// site → Google → bot Worker. Returns the Worker's JSON as is; one quick retry on a 5xx/network error.
+function relay_(P, body) {
+  const url = P.getProperty("BOT_URL"), key = P.getProperty("SITE_KEY");
+  if (!url || !key) return { error: "relay not configured" };
+  const route = String(body.api || "").replace(/[^a-z\/]/g, "").slice(0, 30);
+  const payload = Object.assign({}, body.payload || {}, { _ip: String(body.payload && body.payload._ip || "") });
+  for (let i = 0; i < 2; i++) {
+    try {
+      const r = UrlFetchApp.fetch(url.replace(/\/$/, "") + "/api/" + route, { method: "post", contentType: "application/json", headers: { "X-Site-Key": key }, payload: JSON.stringify(payload), muteHttpExceptions: true });
+      const code = r.getResponseCode();
+      if (code >= 500 && i === 0) { Utilities.sleep(500); continue; }
+      let j; try { j = JSON.parse(r.getContentText()); } catch (x) { j = { error: "bad reply", detail: r.getContentText().slice(0, 200) }; }
+      j._status = code; return j;
+    } catch (e) { if (i) return { error: "relay", detail: String(e).slice(0, 200) }; Utilities.sleep(500); }
+  }
+  return { error: "relay" };
+}
+
 function post_(url, headers, body) {
   const r = UrlFetchApp.fetch(url, { method: "post", contentType: "application/json", headers: headers, payload: JSON.stringify(body), muteHttpExceptions: true });
   return { status: r.getResponseCode(), text: r.getContentText(), retry: +(r.getHeaders()["Retry-After"] || r.getHeaders()["retry-after"] || 0) };
@@ -31,6 +51,8 @@ function post_(url, headers, body) {
 function handle_(body) {
   const P = PropertiesService.getScriptProperties();
   const AI_KEY = P.getProperty("AI_KEY"), GROQ_KEY = P.getProperty("GROQ_KEY"), MODEL = P.getProperty("MODEL"), GROQ_MODEL = P.getProperty("GROQ_MODEL");
+
+  if (body.api) return relay_(P, body);
 
   // ---- promotions / news written by the admin, shared by everyone ----
   if (body.action === "notes_get") return { notes: P.getProperty("NOTES") || "", updated: P.getProperty("NOTES_AT") || "" };
@@ -41,6 +63,7 @@ function handle_(body) {
     if (String(body.password || "") !== pass) { c.put("bad_pw", String(tries + 1), 600); return { error: "wrong password" }; }
     const notes = String(body.notes || "").slice(0, 1500);
     P.setProperty("NOTES", notes); P.setProperty("NOTES_AT", new Date().toISOString());
+    if (P.getProperty("BOT_URL")) relay_(P, { api: "notes", payload: { notes: notes } });   // the bot's assistant tells guests the same promotions
     return { ok: true, notes: notes };
   }
 

@@ -17,9 +17,11 @@ SITE = {
     "phone_href": "+998953434343",
     "delivery": [("+998 90 916 77 74", "+998909167774"), ("+998 97 766 99 88", "+998977669988")],
     "telegram": "https://t.me/olim_polvon",
-    "bot": "https://t.me/Olimpolvon_bot",
+    "bot": "https://t.me/Olim_Polvon_uz_bot",
     # Cloudflare Worker that talks to Gemini (see worker/worker.js). Empty = scripted demo answers.
     "ai_endpoint": "https://olim-ai.abduraxmanov349.workers.dev, https://script.google.com/macros/s/AKfycbxkmkdz8ZMbgoyUpwtY8l7BI0Sy2NJQMWIqTeMwlzC1QqgeDgNm_WckNVfBjjjtVS0F/exec",
+    # Orders, bookings, receipts, admin login: Google Apps Script relay first (works in Uzbekistan), then the bot Worker.
+    "api_endpoint": "https://script.google.com/macros/s/AKfycbxkmkdz8ZMbgoyUpwtY8l7BI0Sy2NJQMWIqTeMwlzC1QqgeDgNm_WckNVfBjjjtVS0F/exec, https://olim-bot.abduraxmanov349.workers.dev",
     "instagram": "https://instagram.com/_olim_polvon",
     "yandex": "https://yandex.uz/maps/org/89114477009/",
     "rating": "5,0", "ratings": "1500+",
@@ -103,7 +105,7 @@ for cid, uz, ru, en in CATS:
                       "price": price, "unit": unit, "img": (MENU_IMG + sid + ".webp?v=" + str(int((ROOT / MENU_IMG / (sid + ".webp")).stat().st_mtime) % 100000)) if has_ph else None, "tags": tags})
     MENU.append({"id": cid, "uz": uz, "ru": ru, "en": en, "items": items})
 
-MENU_JSON = [{"id": it["id"], "key": it["ru"], "cat": c["id"], "catTitle": c["ru"], "name": it["ru"], "desc": it["d_ru"],
+MENU_JSON = [{"id": it["id"], "sid": it["sid"], "key": it["ru"], "cat": c["id"], "catTitle": c["ru"], "name": it["ru"], "desc": it["d_ru"],
               "weight": UNITS[it["unit"]][1], "price": it["price"], "tags": it["tags"], "img": (_small(it["img"].split("?")[0]) + "?" + it["img"].split("?")[1]) if it["img"] else None, "alt": it["uz"] + " " + it["en"]} for c in MENU for it in c["items"]]
 BY_RU = {it["ru"]: it for c in MENU for it in c["items"]}
 def dish(ru): return BY_RU[ru]
@@ -232,7 +234,7 @@ def crumbs_schema(name, path):
         {"@type": "ListItem", "position": 2, "name": name, "item": SITE["domain"] + "/" + path}]}
 
 FAQ = [
-    ("Есть ли доставка?", f"Да. Заказать можно по телефонам {SITE['delivery'][0][0]} и {SITE['delivery'][1][0]} или через Telegram-бот @Olimpolvon_bot."),
+    ("Есть ли доставка?", f"Да. Заказать можно по телефонам {SITE['delivery'][0][0]} и {SITE['delivery'][1][0]} или через Telegram-бот @Olim_Polvon_uz_bot."),
     ("Во сколько вы открываетесь?", "Работаем ежедневно с 06:00 до 23:00. С утра — супы и национальные блюда."),
     ("Бронь стола платная?", "Да, бронь платная. Стоимость администратор назовёт, когда перезвонит подтвердить заявку."),
     ("Можно прийти со своим тортом?", "Нет, свою еду, торты и напитки приносить нельзя. Торт и десерты для праздника можно заказать у нас."),
@@ -256,7 +258,7 @@ def head(page, title, desc, path, schemas, og_img="share.jpg", noindex=False, pr
     robots = '<meta name="robots" content="noindex, nofollow">' if noindex else '<meta name="robots" content="index, follow, max-image-preview:large">'
     pre = '<link rel="preload" as="image" href="assets/ph-logo.webp" fetchpriority="high">' + (f'<link rel="preload" as="image" href="{preload_img}" fetchpriority="high">' if preload_img else "")
     return f"""<!doctype html>
-<html lang="ru" class="no-js" data-page="{page}">
+<html lang="ru" class="no-js" data-page="{page}" data-api="{SITE['api_endpoint']}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -297,7 +299,7 @@ def header(active):
 <div class="admin-bar" role="region" aria-label="Панель администратора">
   <div class="wrap">
     <span class="admin-badge"><span class="dot"></span><span class="hide-xs">Режим администратора</span><span class="show-xs">Админ</span></span>
-    <span class="hide-sm" style="opacity:.75">Изменения видны только на этом устройстве (демо)</span>
+    <span class="hide-sm" style="opacity:.75">Заказы и брони — общие с ботом; меню и стоп-лист — на этом устройстве</span>
     <nav aria-label="Администрирование">
       <a href="admin.html">{ic("i-grid")}<span class="hide-sm">Панель</span></a>
       <a href="menu.html">{ic("i-edit")}<span class="hide-sm">Меню</span></a>
@@ -381,6 +383,7 @@ def footer():
   <div class="ai-head">
     <span class="ai-ava ai-ava--mascot" data-ai-ava>{mascot()}</span>
     <div><b>Ёрдамчи</b><span class="ai-status">AI-помощник {SITE['name']}</span></div>
+    <button class="ai-bell" type="button" data-push-toggle aria-pressed="false" aria-label="Уведомления" title="Включить уведомления"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 8 3 8H3s3-1 3-8"/><path d="M10.3 20a1.9 1.9 0 0 0 3.4 0"/></svg></button>
     <button class="ai-forget" type="button" data-ai-forget title="Забыть меня: стереть переписку и предпочтения с этого устройства">Забыть меня</button>
     <button class="ai-close" type="button" data-ai-close aria-label="Закрыть чат">{ic("i-close")}</button>
   </div>
@@ -777,7 +780,8 @@ contact = head("contact",
           <svg class="check-draw" viewBox="0 0 72 72" aria-hidden="true"><circle cx="36" cy="36" r="34"/><path d="M23 37l9 9 17-19"/></svg>
           <h2>Заявка принята</h2>
           <p class="muted" data-success-text></p>
-          <p class="hint">Демо: заявка сохранена в админ-панели этого браузера. После запуска будет приходить администратору в Telegram.</p>
+          <p class="co-sync" data-booking-sync>Отправляем заявку…</p>
+          <p class="hint">Бронь платная: стоимость назовёт администратор, когда перезвонит. Статус заявки виден внизу слева на любой странице сайта.</p>
           <button class="btn btn--ghost" type="button" data-again>Новая заявка</button>
         </div>
       </div>
@@ -786,7 +790,7 @@ contact = head("contact",
         <div class="info-block"><h3>Телефон</h3><p><a href="tel:{SITE['phone_href']}">{SITE['phone']}</a></p></div>
         <div class="info-block"><h3>Часы работы</h3><div class="hours" style="font-size:18px">{"".join(f"<span>{d}</span><span>{t}</span>" for d, t in SITE["hours"])}</div></div>
         <div class="info-block"><h3>Доставка</h3><p>{" · ".join(f'<a href="tel:{h}">{p}</a>' for p, h in SITE["delivery"])}</p></div>
-        <div class="info-block"><h3>Telegram</h3><p><a href="{SITE['bot']}" target="_blank" rel="noopener">@Olimpolvon_bot — всё меню</a></p></div>
+        <div class="info-block"><h3>Telegram</h3><p><a href="{SITE['bot']}" target="_blank" rel="noopener">@Olim_Polvon_uz_bot — всё меню</a></p></div>
       </aside>
     </div>
     <div class="wrap contact-map" id="map" aria-labelledby="map-title">
@@ -827,7 +831,7 @@ admin = head("admin", f"Панель администратора — {SITE['nam
             <div class="kpi"><span>Блюд в меню</span><b data-kpi="dishes">0</b></div>
             <div class="kpi"><span>В стоп-листе</span><b data-kpi="stop">0</b></div>
           </div>
-          <p class="muted">Это демо-панель: данные хранятся в этом браузере. В рабочей версии заявки, меню и стоп-лист будут общими для сайта и Telegram-бота (Cloudflare Workers + D1).</p>
+          <p class="muted">Заказы и брони хранятся на сервере (Cloudflare D1) и общие с Telegram-ботом: что вы меняете здесь, сотрудники видят в боте, и наоборот. Меню и стоп-лист пока хранятся в этом браузере.</p>
         </section>
         <section class="admin-panel" id="p-bookings" role="tabpanel" aria-labelledby="t-bookings" hidden>
           <h2>Заказы: доставка и навынос</h2>
@@ -875,7 +879,7 @@ pages = [("", "1.0", "weekly"), ("menu.html", "0.9", "weekly"), ("contact.html",
 write("sitemap.xml", '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' + "".join(
     f"  <url><loc>{SITE['domain']}/{p}</loc><lastmod>{today}</lastmod><changefreq>{f}</changefreq><priority>{pr}</priority></url>\n" for p, pr, f in pages) + "</urlset>\n")
 write("robots.txt", f"User-agent: *\nAllow: /\nDisallow: /admin.html\n\nSitemap: {SITE['domain']}/sitemap.xml\n")
-write("site.webmanifest", json.dumps({"name": f"{SITE['name_full']}", "short_name": SITE["name"], "start_url": "/", "display": "standalone",
+write("site.webmanifest", json.dumps({"name": f"{SITE['name_full']}", "short_name": SITE["name"], "start_url": "./", "scope": "./", "display": "standalone",
     "background_color": "#f4ede1", "theme_color": "#f4ede1", "icons": [{"src": "assets/icon-512.png", "sizes": "512x512", "type": "image/png"}, {"src": "assets/apple-touch-icon.png", "sizes": "180x180", "type": "image/png"}]}, ensure_ascii=False, indent=1))
 print("built", [p.name for p in ROOT.glob("*.html")])
 

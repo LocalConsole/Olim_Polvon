@@ -1,7 +1,8 @@
 {
  "name": "Olim Polvon Milliy Taomlari",
  "short_name": "Olim Polvon",
- "start_url": "/",
+ "start_url": "./",
+ "scope": "./",
  "display": "standalone",
  "background_color": "#f4ede1",
  "theme_color": "#f4ede1",

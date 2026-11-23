@@ -1268,6 +1268,33 @@ body::before {
 
 /* fast images: the restaurant logo fills the frame until the photo has loaded (logo is preloaded first) */
 img.lz { background: rgba(185,124,29,.08) url(ph-logo.webp) center / auto 56% no-repeat; color: transparent; }
+/* status of my order / booking (bottom-left chip) */
+.trk { position: fixed; left: 16px; bottom: 20px; z-index: 84; display: grid; gap: 8px; justify-items: start; max-width: min(360px, calc(100vw - 110px)); }
+.has-order .trk { bottom: 92px; }
+.ai-open .trk, .co-open .trk { opacity: 0; pointer-events: none; }
+.trk-chip { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 8px 14px; border-radius: 999px; border: 1px solid var(--line-strong); background: var(--bg-2); color: var(--fg); font: 600 14px/1.25 var(--font-body); text-align: left; box-shadow: var(--shadow-1); cursor: pointer; transition: transform 160ms var(--ease-out); animation: trk-in 360ms var(--spring-soft); }
+.trk-chip:active { transform: scale(.97); }
+.trk-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--gold); flex: none; }
+.trk-chip.is-live .trk-dot { background: #3fa35a; animation: live-pulse 1.6s ease-out infinite; }
+.trk-chip.is-wait .trk-dot { background: var(--muted); animation: trk-blink 1s ease-in-out infinite; }
+.trk-chip.is-bad { border-color: var(--ember); } .trk-chip.is-bad .trk-dot { background: var(--ember); }
+.trk-chip.is-pay { border-color: var(--gold); }
+@keyframes trk-in { from { opacity: 0; transform: translateY(10px); } }
+@keyframes trk-blink { 50% { opacity: .3; } }
+.trk-big { font-size: 20px; font-weight: 600; margin: 0 0 10px; }
+.trk-steps { list-style: none; display: flex; gap: 6px; margin: 16px 0; padding: 0; }
+.trk-steps li { flex: 1; padding-top: 10px; border-top: 4px solid var(--line-strong); font-size: 13px; color: var(--muted); transition: border-color 300ms var(--ease-out); }
+.trk-steps li.is-on { border-color: var(--gold); color: var(--fg); font-weight: 600; }
+.trk-pay { margin: 14px 0; padding: 14px; border-radius: 14px; background: rgba(230,166,60,.10); text-align: left; display: grid; gap: 8px; }
+.trk-pay p { margin: 0; }
+.trk-pay.is-ok { background: rgba(76,160,90,.12); } .trk-pay.is-wait { background: var(--bg-3); }
+.trk-card code { font-size: 18px; letter-spacing: .04em; }
+.trk-warn { color: var(--ember); font-weight: 600; }
+.trk-up { justify-content: center; cursor: pointer; }
+.co-sync { margin: 10px 0 0; font-weight: 600; color: var(--muted); }
+.co-sync.is-ok { color: #2f8a49; } .co-sync.is-bad { color: var(--ember); }
+@media (max-width: 640px) { .trk { left: 12px; bottom: 12px; } .has-order .trk { bottom: 80px; } }
+@media (prefers-reduced-motion: reduce) { .trk-chip, .trk-chip .trk-dot { animation: none !important; } }
 
 /* assistant: several admin buttons in one row */
 .ai-go-row { display: flex; flex-wrap: wrap; gap: 8px; align-self: flex-start; max-width: 100%; }
@@ -1277,3 +1304,26 @@ img.lz { background: rgba(185,124,29,.08) url(ph-logo.webp) center / auto 56% no
 .ai-keep input { width: 16px; height: 16px; accent-color: var(--gold-deep); }
 .is-admin .ai-keep { display: none; }
 @media (max-width: 420px) { .ai-head .ai-status { display: none; } }
+
+/* notifications: bell in the assistant, «notify me» offer */
+.ai-bell { width: 34px; height: 34px; display: grid; place-items: center; margin-left: auto; border-radius: 999px; border: 1px solid var(--line-strong); background: transparent; color: var(--muted); cursor: pointer; transition: color 160ms ease, border-color 160ms ease, background-color 160ms ease; }
+.ai-bell.is-on { color: var(--gold-deep); border-color: var(--gold); background: rgba(230,166,60,.14); }
+.ai-bell + .ai-forget { margin-left: 8px; }
+.push-offer { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin: 12px 0; padding: 10px 14px; border-radius: 14px; border: 1px dashed var(--gold); background: rgba(230,166,60,.08); font-size: 14px; text-align: left; }
+.push-offer[hidden] { display: none; }
+@media (max-width: 420px) { .ai-forget { padding: 0 9px; } }
+@media (max-width: 420px) {
+  .ai-head { gap: 8px; }
+  .ai-head .ai-bell { width: 32px; height: 32px; }
+  .ai-head .ai-forget { height: 32px; padding: 0 8px; font-size: 11px; }
+  .ai-head .ai-close { flex: none; }
+}
+
+/* Telegram Mini App (menu.html?tg=1): only the menu, cart and checkout */
+.in-tg .admin-bar, .in-tg .site-header, .in-tg .site-footer, .in-tg .crumbs, .in-tg .ai-launch, .in-tg .ai-hello, .in-tg .ai-hello-text, .in-tg .trk, .in-tg .skip-link { display: none !important; }
+.in-tg { --header-h: 0px; --admin-h: 0px; }
+.in-tg .page-head { padding-block: 18px 10px; }
+.in-tg .page-head h1 { font-size: clamp(26px, 8vw, 34px); }
+.in-tg .page-head p { display: none; }
+.in-tg .menu-bar { top: 0; }
+.in-tg body { overscroll-behavior: none; }

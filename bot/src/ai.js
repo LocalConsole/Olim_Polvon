@@ -10,7 +10,7 @@ const FACTS = `Ресторан «Olim Polvon Milliy Taomlari», Ташкент,
 
 const GUEST = `${AI_PERSONA}
 Сейчас ты в Telegram-боте ресторана (на сайте — ты же; это одна и та же лепёшка и одна память).
-Ты всегда Ёрдамчи — одна и та же лепёшка с одной памятью, кто бы ни отвечал внутри. Никогда не называй модель или компанию (Groq, Gemini, Llama, Google, Meta, OpenAI); на вопрос «какой ты ИИ / кто тебя сделал» отвечай, что ты Ёрдамчи — помощник ресторана Olim Polvon. Продолжай разговор из сообщений выше так, будто ты сам их писал.
+Ты всегда Ёрдамчи — одна и та же лепёшка с одной памятью, кто бы ни отвечал внутри. Никогда не называй модель или компанию (Groq, Gemini, Llama, Google, Meta, OpenAI); только если спросят «какой ты ИИ / кто тебя сделал», одной фразой скажи, что ты Ёрдамчи — помощник ресторана Olim Polvon, и сразу помоги по делу; не повторяй это в каждом ответе. Продолжай разговор из сообщений выше так, будто ты сам их писал.
 ФАКТЫ (других не выдумывай; не знаешь — дай телефон):
 ${FACTS}
 МЕНЮ «название ru/uz|цена (43к = 43 000)|состав». Другие блюда не придумывай:
@@ -26,7 +26,7 @@ JSON: {"reply":"…","dishes":["точные РУССКИЕ названия с�
 const STAFF = `Ты — Ёрдамчи, румяная лепёшка-талисман ресторана Olim Polvon (тот же характер, что у гостей: тёплый, с юмором), но сейчас помогаешь СОТРУДНИКУ в Telegram-боте. Роль собеседника: {ROLE}. С коллегой — по делу: 1–2 коротких предложения, шутка редко, без приветствий. Отвечай на языке сообщения (узбекский — латиницей). Ничего не выдумывай: используй только ДАННЫЕ ниже. Сам ничего не меняешь — действия делаются кнопками в карточках заказов и броней.
 Как работать: новые заказы и брони приходят карточками с кнопками (Принять → Готовится → Передан курьеру → Выполнен; бронь: Подтвердить / Перезвоню / Отклонить / Назначить стоимость). Отменить заказ — кнопка ✖️ в карточке (с подтверждением). Чек об оплате приходит фото с кнопками «Оплата подтверждена» / «Нет оплаты». Команды: /panel, /orders, /bookings, /stats, /undelivered, /push текст (рассылка гостям сайта){DEVCMD}.
 ПАМЯТЬ ОБ ЭТОМ СОТРУДНИКЕ: {MEM}
-Ты всегда Ёрдамчи — одна и та же лепёшка с одной памятью, кто бы ни отвечал внутри. Никогда не называй модель или компанию (Groq, Gemini, Llama, Google, Meta, OpenAI); на вопрос «какой ты ИИ / кто тебя сделал» отвечай, что ты Ёрдамчи — помощник ресторана Olim Polvon. Продолжай разговор из сообщений выше так, будто ты сам их писал.
+Ты всегда Ёрдамчи — одна и та же лепёшка с одной памятью, кто бы ни отвечал внутри. Никогда не называй модель или компанию (Groq, Gemini, Llama, Google, Meta, OpenAI); только если спросят «какой ты ИИ / кто тебя сделал», одной фразой скажи, что ты Ёрдамчи — помощник ресторана Olim Polvon, и сразу помоги по делу; не повторяй это в каждом ответе. Продолжай разговор из сообщений выше так, будто ты сам их писал.
 Сейчас {NOW}. ДАННЫЕ:
 {DATA}
 JSON: {"reply":"…","show":[],"remember":["0–2 устойчивых пожелания сотрудника о том, как ему помогать, если он их сказал; чаще []"],"forget":[]} — в "show" до 3 кнопок, которые помогут: "orders" открытые заказы, "bookings_today", "bookings_tomorrow", "stats" статистика дня, "undelivered", "receipts" чеки на проверке, "order:N", "booking:N"{DEVSHOW}.{GRANT}`;
@@ -53,6 +53,15 @@ async function staffData(env, role) {
   return parts.join("\n");
 }
 
+// language of the message: Cyrillic → Russian (Uzbek Cyrillic letters → Uzbek), Latin → Uzbek unless it is clearly English
+export function langOf(text) {
+  const t = String(text || "").toLowerCase();
+  if (/[ўқғҳ]/.test(t)) return "uz";
+  if (/[а-яё]/.test(t)) return "ru";
+  if (/\b(the|is|are|what|how|can|you|do|have|menu please|hello|hi|please|where|when|price)\b/.test(t) && !/\b(bormi|qancha|nima|qayer|qachon|kerak|menga|sizda|rahmat|salom)\b/.test(t)) return "en";
+  return /[a-z]/.test(t) ? "uz" : "";
+}
+const LANG_NOTE = { ru: "[Ответь по-русски]", uz: "[O'zbek tilida (lotin) javob ber]", en: "[Answer in English]" };
 function hint(text) {
   if (text.length > 120) return "";
   const fixed = layoutFix(text);
@@ -116,12 +125,13 @@ export async function ask(env, role, text, hist = [], mem = null) {
   else sys = STAFF.replace("{MEM}", facts).replace("{RECENT}", recent).replace("{ROLE}", ROLE_RU[role] || role).replace("{NOW}", new Date(now() + 5 * 3600e3).toISOString().slice(0, 16).replace("T", " "))
     .replace("{DATA}", await staffData(env, role)).replace("{GRANT}", ["checker", "dev"].includes(role) ? '\nЕсли просят назначить или снять роль сотруднику, добавь "grant":{"who":"@username, номер телефона или Telegram ID как написали","role":"orders|bookings|checker|dev|guest"} — роль поменяется только после кнопки подтверждения. Человек должен был хоть раз нажать /start в боте. Если просят ссылку-приглашение для роли, добавь "invite":{"role":"orders|bookings|checker|dev"} — бот сразу пришлёт одноразовую ссылку на 48 часов: кто её откроет, получит эту роль.' : "").replace("{DEVCMD}", role === "dev" ? ", /health, /logs, /test" : "").replace("{DEVSHOW}", role === "dev" ? ', "health", "logs"' : "");
   // the same recent conversation goes to every AI, so a fallback model simply continues it
-  const past = (mem?.recent || []).slice(-8).map(t => ({ role: t.role === "user" ? "user" : "assistant", content: (t.src === "site" ? "[сайт] " : "") + t.text }));
+  const past = (mem?.recent || []).filter((t, i, a) => !(t.role !== "user" && a.slice(0, i).some(x => x.role !== "user" && x.text === t.text))).slice(-8).map(t => ({ role: t.role === "user" ? "user" : "assistant", content: (t.src === "site" ? "[сайт] " : "") + t.text }));
   while (past.length && past[0].role !== "user") past.shift();   // a chat must start with the guest
-  const msgs = [...past, { role: "user", content: text.slice(0, 600) + hint(text) }];
+  const lg = langOf(text);
+  const msgs = [...past, { role: "user", content: text.slice(0, 600) + hint(text) + (lg ? "\n" + LANG_NOTE[lg] : "") }];
   let res, errs = [];
-  // order: Cloudflare Workers AI → Groq → Gemini
-  for (const f of [env.AI && workersAI, env.GROQ_KEY && groq, env.AI_KEY && gemini].filter(Boolean)) {
+  // order: Groq (fast, best quality) → Gemini → Cloudflare Workers AI (last safety net)
+  for (const f of [env.GROQ_KEY && groq, env.AI_KEY && gemini, env.AI && workersAI].filter(Boolean)) {
     try { res = await f(env, sys, msgs); break; } catch (e) { errs.push(String(e.message || e)); }
   }
   const ms = now() - t0;

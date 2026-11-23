@@ -7,7 +7,7 @@ import { enqueue, flush, runDue } from "./outbox.js";
 import * as core from "./core.js";
 import { ask } from "./ai.js";
 import { pushMany } from "./push.js";
-import { memKey, memGet, memUpdate, memLink } from "./mem.js";
+import { memKey, memGet, memUpdate, memLink, memReset } from "./mem.js";
 
 const LANGS = ["ru", "uz", "en"];
 const li = l => ({ ru: 0, uz: 1, en: 2 }[l] ?? 0);
@@ -478,6 +478,7 @@ export async function handleUpdate(env, upd, ctx) {
     if (cmd === "/book") return bkStart(env, u);
     if (cmd === "/my") return showMy(env, u);
     if (cmd === "/lang") return send(env, u.id, t(l, "pick_lang"), ik([[btn("O'zbekcha", "lg:uz"), btn("Русский", "lg:ru"), btn("English", "lg:en")]]));
+    if (cmd === "/reset") { await memReset(env, memKey(u)); await env.DB.prepare("UPDATE users SET hist='[]' WHERE id=?").bind(u.id).run(); return send(env, u.id, t(l, "reset_ok")); }
     if (cmd === "/id") return send(env, u.id, `Ваш Telegram ID: <code>${u.id}</code>`);
     if (!can(u, "staff")) return send(env, u.id, t(l, "hello"), mainKb(u));
     if (cmd === "/panel") return showPanel(env, u);

@@ -25,6 +25,8 @@ async function memUpdate_(env, key, { remember, forget, turn, src }) {
   m.facts = m.facts.filter(f => !fg.includes(n(f)));
   for (const f of clean(remember).slice(0, 3)) if (!m.facts.some(x => n(x) === n(f))) m.facts.push(f);
   if (turn) for (const [role, text] of turn) if (text) m.recent.push({ src, role, text: String(text).slice(0, 300), at: now() });
+  // the same answer twice in a row is a stuck model — keep only one copy
+  m.recent = m.recent.filter((x, i, a) => !(x.role !== "user" && a.slice(Math.max(0, i - 4), i).some(y => y.role !== "user" && y.text === x.text)));
   await save(env, key, m);
   return m;
 }
@@ -48,6 +50,8 @@ export async function memLink(env, u, cid) {
   await env.DB.prepare("UPDATE users SET cid=? WHERE id=?").bind(cid, u.id).run();
   u.cid = cid;
 }
+export async function memReset(env, key) { await env.DB.prepare("DELETE FROM mem WHERE key=?").bind(key).run(); }
+
 // for the prompt
 export function memPrompt(m) {
   const facts = m.facts.length ? m.facts.join("; ") : "пока ничего";

@@ -533,7 +533,8 @@ export async function handleUpdate(env, upd, ctx) {
   if (qi === "cart") return showCart(env, u);
   if (qi === "book") return bkStart(env, u);
   if (qi === "info") return send(env, u.id, t(l, "info"));
-  return aiReply(env, u, text, ctx);
+  try { return await aiReply(env, u, text, ctx); }
+  catch (e) { await log(env, "error", "ai.reply", (e.stack || String(e)).slice(0, 600)); return send(env, u.id, t(l, "ai_down")); }
 }
 
 async function onCallback(env, q, ctx) {

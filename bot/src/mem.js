@@ -6,15 +6,20 @@ export const memKey = u => (u.cid ? "c:" + u.cid : "tg:" + u.id);
 const clean = a => (Array.isArray(a) ? a : []).filter(x => typeof x === "string" && x.trim()).map(x => x.trim().replace(/[\n\r]/g, " ").slice(0, 80));
 
 export async function memGet(env, key) {
-  const r = await env.DB.prepare("SELECT facts, recent FROM mem WHERE key=?").bind(key).first();
-  return { facts: J(r?.facts, []), recent: J(r?.recent, []) };
+  try {
+    const r = await env.DB.prepare("SELECT facts, recent FROM mem WHERE key=?").bind(key).first();
+    return { facts: J(r?.facts, []), recent: J(r?.recent, []) };
+  } catch (e) { console.log("memGet", String(e)); return { facts: [], recent: [] }; }
 }
 async function save(env, key, m) {
   await env.DB.prepare("INSERT INTO mem(key,facts,recent,updated) VALUES(?,?,?,?) ON CONFLICT(key) DO UPDATE SET facts=excluded.facts, recent=excluded.recent, updated=excluded.updated")
     .bind(key, JSON.stringify(m.facts.slice(-16)), JSON.stringify(m.recent.slice(-12)), now()).run();
 }
 // learn / unlearn facts and add the last exchange
-export async function memUpdate(env, key, { remember, forget, turn, src }) {
+export async function memUpdate(env, key, args) {
+  try { return await memUpdate_(env, key, args); } catch (e) { console.log("memUpdate", String(e)); }
+}
+async function memUpdate_(env, key, { remember, forget, turn, src }) {
   const m = await memGet(env, key), n = x => x.toLowerCase();
   const fg = clean(forget).map(n);
   m.facts = m.facts.filter(f => !fg.includes(n(f)));

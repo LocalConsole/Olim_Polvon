@@ -13,8 +13,23 @@ const COMMANDS = {
   en: [["menu", "Menu"], ["cart", "Cart"], ["book", "Book a table"], ["my", "My orders"], ["lang", "Language"]],
 };
 
+// Additions to the database made after the first install. Runs once per Worker instance; "already exists" is fine.
+const MIGRATIONS = [
+  "CREATE TABLE IF NOT EXISTS mem (key TEXT PRIMARY KEY, facts TEXT DEFAULT '[]', recent TEXT DEFAULT '[]', updated INTEGER)",
+  "ALTER TABLE users ADD COLUMN cid TEXT",
+  "ALTER TABLE orders ADD COLUMN cid TEXT",
+  "ALTER TABLE bookings ADD COLUMN cid TEXT",
+  "CREATE TABLE IF NOT EXISTS push_subs (id INTEGER PRIMARY KEY AUTOINCREMENT, endpoint TEXT UNIQUE NOT NULL, p256dh TEXT, auth TEXT, cid TEXT, lang TEXT DEFAULT 'ru', created INTEGER, last_seen INTEGER, last_sent INTEGER, last_miss INTEGER, unanswered INTEGER DEFAULT 0)",
+];
+let migrated = false;
+async function migrate(env) {
+  if (migrated) return; migrated = true;
+  for (const sql of MIGRATIONS) { try { await env.DB.prepare(sql).run(); } catch (e) { if (!/duplicate column|already exists/i.test(String(e))) console.log("migration", sql, String(e)); } }
+}
+
 export default {
   async fetch(req, env, ctx) {
+    await migrate(env);
     const u = new URL(req.url);
     if (u.pathname === "/tg" && req.method === "POST") {
       if (!env.WEBHOOK_SECRET || req.headers.get("X-Telegram-Bot-Api-Secret-Token") !== env.WEBHOOK_SECRET) return new Response("forbidden", { status: 403 });
@@ -39,6 +54,7 @@ export default {
 
   async scheduled(event, env, ctx) {
     try {
+      await migrate(env);
       await runDue(env);
       const day = localDay(env), hm = localTime(env);
       // daily report to managers at 23:05 Tashkent

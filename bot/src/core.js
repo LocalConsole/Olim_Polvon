@@ -44,7 +44,7 @@ export function orderText(o) {
   const items = J(o.items, []);
   const geo = o.lat ? `\n📍 <a href="${ylink(o.lat, o.lon)}">на карте</a>${o.live ? " · трансляция" + (o.live_at ? " " + new Date(o.live_at + 5 * 3600e3).toISOString().slice(11, 16) : "") : ""}` : "";
   return [
-    `${o.test ? "🧪 ТЕСТ · " : ""}<b>Заказ №${o.num}</b> · ${TYPE_RU[o.type] || o.type}${o.table_no ? " №" + esc(o.table_no) : ""} · ${o.source === "bot" ? "бот" : "сайт"}`,
+    `${o.test ? "🧪 ТЕСТ · " : ""}<b>Заказ №${o.num}</b> · ${TYPE_RU[o.type] || o.type}${o.table_no ? " №" + esc(o.table_no) : ""} · ${o.source === "bot" ? "бот" : o.source === "app" ? "мини-приложение" : "сайт"}`,
     `Статус: <b>${ST_RU[o.status] || o.status}</b>${o.staff_name ? " · " + esc(o.staff_name) : ""}`,
     o.phone ? `👤 ${esc(o.name || "")} ${esc(o.phone)}` : "",
     o.address ? `🏠 ${esc(o.address)}` : "", geo.trim() ? geo.slice(1) : "",

@@ -1318,3 +1318,12 @@ img.lz { background: rgba(185,124,29,.08) url(ph-logo.webp) center / auto 56% no
   .ai-head .ai-forget { height: 32px; padding: 0 8px; font-size: 11px; }
   .ai-head .ai-close { flex: none; }
 }
+
+/* Telegram Mini App (menu.html?tg=1): only the menu, cart and checkout */
+.in-tg .admin-bar, .in-tg .site-header, .in-tg .site-footer, .in-tg .crumbs, .in-tg .ai-launch, .in-tg .ai-hello, .in-tg .ai-hello-text, .in-tg .trk, .in-tg .skip-link { display: none !important; }
+.in-tg { --header-h: 0px; --admin-h: 0px; }
+.in-tg .page-head { padding-block: 18px 10px; }
+.in-tg .page-head h1 { font-size: clamp(26px, 8vw, 34px); }
+.in-tg .page-head p { display: none; }
+.in-tg .menu-bar { top: 0; }
+.in-tg body { overscroll-behavior: none; }

@@ -29,6 +29,7 @@ export default {
       if (!env.SITE_KEY || req.headers.get("X-Site-Key") !== env.SITE_KEY) return new Response("forbidden", { status: 403 });
       const hook = await tg(env, "setWebhook", { url: u.origin + "/tg", secret_token: env.WEBHOOK_SECRET, allowed_updates: ["message", "edited_message", "callback_query"], drop_pending_updates: false, max_connections: 20 });
       const res = { webhook: hook };
+      res.menu_button = await tg(env, "setChatMenuButton", { menu_button: { type: "web_app", text: "Menyu", web_app: { url: (await import("./lib.js")).menuApp(env, "uz") } } });
       for (const [lang, list] of Object.entries(COMMANDS)) res["commands_" + lang] = await tg(env, "setMyCommands", { commands: list.map(([command, description]) => ({ command, description })), ...(lang === "ru" ? {} : { language_code: lang }) });
       return Response.json(res);
     }

@@ -89,6 +89,7 @@ export const T = {
   b_upd: ["Бронь №{n} на {d} {t}: {s}", "№{n} bron ({d} {t}): {s}", "Booking #{n} for {d} {t}: {s}"],
   b_fee: ["Стоимость брони: <b>{sum}</b>. Оплатите переводом на карту <code>{card}</code> ({owner}) и пришлите сюда скриншот чека.", "Bron narxi: <b>{sum}</b>. <code>{card}</code> ({owner}) kartasiga o'tkazing va chek skrinshotini shu yerga yuboring.", "Booking price: <b>{sum}</b>. Transfer to card <code>{card}</code> ({owner}) and send the receipt screenshot here."],
   linked: ["Ассаламу алейкум! Это снова я, Ёрдамчи 🫓 Помню наш разговор на сайте — продолжим здесь. Спрашивайте или откройте меню.", "Assalomu alaykum! Yana men, Yordamchi 🫓 Saytdagi suhbatimizni eslayman — shu yerda davom etamiz. So'rang yoki menyuni oching.", "Hello! It's me again, Yordamchi 🫓 I remember our chat on the website — let's continue here. Ask me anything or open the menu."],
+  open_app: ["🖼 Открыть меню с фото", "🖼 Rasmli menyuni ochish", "🖼 Open the menu with photos"],
   add_btn: ["В корзину", "Savatga", "Add to cart"],
   list_btn: ["Весь раздел", "Butun bo'lim", "Whole section"],
   delivery_note: ["Доставка оплачивается отдельно — сумму назовёт администратор.", "Yetkazib berish alohida — narxini administrator aytadi.", "Delivery is extra — the administrator will tell the price."],

@@ -21,6 +21,25 @@ export async function log(env, level, src, msg) {
   } catch (e) { console.log("log failed", e); }
 }
 
+// the site / Mini App address for a language
+export const siteUrl = (env, lang = "ru", page = "") => (env.SITE_URL || "https://localconsole.github.io/Olim_Polvon/") + (lang && lang !== "ru" ? lang + "/" : "") + page;
+export const menuApp = (env, lang) => siteUrl(env, lang, "menu.html?tg=1");
+
+// Telegram Mini App: initData is signed with the bot token (HMAC-SHA256, key = HMAC("WebAppData", token)). Returns the user or null.
+export async function tgWebAppUser(env, initData) {
+  try {
+    const q = new URLSearchParams(String(initData || "")), hash = q.get("hash"); if (!hash || !env.BOT_TOKEN) return null;
+    q.delete("hash");
+    const check = [...q.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([k, v]) => k + "=" + v).join("\n");
+    const enc = new TextEncoder(), hmac = async (key, data) => new Uint8Array(await crypto.subtle.sign("HMAC", await crypto.subtle.importKey("raw", key, { name: "HMAC", hash: "SHA-256" }, false, ["sign"]), enc.encode(data)));
+    const secret = await hmac(enc.encode("WebAppData"), env.BOT_TOKEN);
+    const sig = [...await hmac(secret, check)].map(b => b.toString(16).padStart(2, "0")).join("");
+    if (sig !== hash) return null;
+    if (Date.now() / 1000 - (+q.get("auth_date") || 0) > 7 * 86400) return null;   // a week-old session is not trusted
+    return JSON.parse(q.get("user") || "null");
+  } catch { return null; }
+}
+
 export const devIds = env => String(env.DEV_IDS || "").split(/[\s,]+/).map(Number).filter(Boolean);
 
 // Settings the owner will give later; until then safe placeholders

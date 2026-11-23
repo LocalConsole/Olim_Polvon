@@ -14,7 +14,8 @@ compatibility_date = "2026-11-01"
 DEV_IDS = "8669704593"                                   # your Telegram id(s), comma separated
 ORIGINS = "https://localconsole.github.io"
 PHOTO_BASE = "https://localconsole.github.io/Olim_Polvon/assets/menu/tg/"
-BOT_USERNAME = "Olim_Polvon_yordamchi_bot"
+SITE_URL = "https://localconsole.github.io/Olim_Polvon/"   # the site; menu.html?tg=1 is the Telegram Mini App
+BOT_USERNAME = "Olim_Polvon_uz_bot"
 TZ_OFFSET = "5"                                # Tashkent, UTC+5
 VAPID_PUBLIC = "BHIjF5xXn8FdhLX31tURlTtkhCsUj3cpeURLPwHaAW_YaqXA6hdtos12qPpMOkxH6hS9nEB_liBA5RbD2_JIq1g"  # public half of the VAPID pair; the private one is a secret
 VAPID_SUBJECT = "mailto:admin@olimpolvon.uz"

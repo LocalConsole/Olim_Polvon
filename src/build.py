@@ -17,7 +17,7 @@ SITE = {
     "phone_href": "+998953434343",
     "delivery": [("+998 90 916 77 74", "+998909167774"), ("+998 97 766 99 88", "+998977669988")],
     "telegram": "https://t.me/olim_polvon",
-    "bot": "https://t.me/Olim_Polvon_yordamchi_bot",
+    "bot": "https://t.me/Olim_Polvon_uz_bot",
     # Cloudflare Worker that talks to Gemini (see worker/worker.js). Empty = scripted demo answers.
     "ai_endpoint": "https://olim-ai.abduraxmanov349.workers.dev, https://script.google.com/macros/s/AKfycbxkmkdz8ZMbgoyUpwtY8l7BI0Sy2NJQMWIqTeMwlzC1QqgeDgNm_WckNVfBjjjtVS0F/exec",
     # Orders, bookings, receipts, admin login: Google Apps Script relay first (works in Uzbekistan), then the bot Worker.
@@ -234,7 +234,7 @@ def crumbs_schema(name, path):
         {"@type": "ListItem", "position": 2, "name": name, "item": SITE["domain"] + "/" + path}]}
 
 FAQ = [
-    ("Есть ли доставка?", f"Да. Заказать можно по телефонам {SITE['delivery'][0][0]} и {SITE['delivery'][1][0]} или через Telegram-бот @Olim_Polvon_yordamchi_bot."),
+    ("Есть ли доставка?", f"Да. Заказать можно по телефонам {SITE['delivery'][0][0]} и {SITE['delivery'][1][0]} или через Telegram-бот @Olim_Polvon_uz_bot."),
     ("Во сколько вы открываетесь?", "Работаем ежедневно с 06:00 до 23:00. С утра — супы и национальные блюда."),
     ("Бронь стола платная?", "Да, бронь платная. Стоимость администратор назовёт, когда перезвонит подтвердить заявку."),
     ("Можно прийти со своим тортом?", "Нет, свою еду, торты и напитки приносить нельзя. Торт и десерты для праздника можно заказать у нас."),
@@ -790,7 +790,7 @@ contact = head("contact",
         <div class="info-block"><h3>Телефон</h3><p><a href="tel:{SITE['phone_href']}">{SITE['phone']}</a></p></div>
         <div class="info-block"><h3>Часы работы</h3><div class="hours" style="font-size:18px">{"".join(f"<span>{d}</span><span>{t}</span>" for d, t in SITE["hours"])}</div></div>
         <div class="info-block"><h3>Доставка</h3><p>{" · ".join(f'<a href="tel:{h}">{p}</a>' for p, h in SITE["delivery"])}</p></div>
-        <div class="info-block"><h3>Telegram</h3><p><a href="{SITE['bot']}" target="_blank" rel="noopener">@Olim_Polvon_yordamchi_bot — всё меню</a></p></div>
+        <div class="info-block"><h3>Telegram</h3><p><a href="{SITE['bot']}" target="_blank" rel="noopener">@Olim_Polvon_uz_bot — всё меню</a></p></div>
       </aside>
     </div>
     <div class="wrap contact-map" id="map" aria-labelledby="map-title">

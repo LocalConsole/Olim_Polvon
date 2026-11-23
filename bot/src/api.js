@@ -4,7 +4,9 @@
 // makes every repeat safe (no duplicates).
 import * as core from "./core.js";
 import { flush } from "./outbox.js";
-import { now, uid, kvGet, kvSet, log, setting, J } from "./lib.js";
+import { now, uid, kvGet, kvSet, log, setting, J, tgWebAppUser, money } from "./lib.js";
+import { enqueue } from "./outbox.js";
+import { t } from "./texts.js";
 
 const hits = new Map();
 function limited(ip, max = 40) {
@@ -39,13 +41,23 @@ export async function handleApi(env, req, ctx, path) {
   if (limited(ip, viaGas ? 400 : 60)) return out({ error: "slow down", retryAfter: 20 }, 429, h);
   const route = path.replace(/^\/api\//, "");
   try {
+    // from the Telegram Mini App: verified user → statuses come to their chat with the bot
+    const tgu = body.tg_init ? await tgWebAppUser(env, body.tg_init) : null;
+    if (tgu) await env.DB.prepare(`INSERT INTO users(id,name,username,lang,created,seen) VALUES(?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET seen=excluded.seen`)
+      .bind(tgu.id, [tgu.first_name, tgu.last_name].filter(Boolean).join(" ").slice(0, 60), tgu.username || null, ["ru", "uz", "en"].includes(body.lang) ? body.lang : "ru", now(), now()).run();
     if (route === "order") {
-      const r = await core.createOrder(env, { ...body, source: "site", tg_user: null });
+      const r = await core.createOrder(env, { ...body, source: tgu ? "app" : "site", tg_user: tgu?.id || null });
+      if (tgu && r.created) {
+        const l = r.row.lang;
+        r.ids.push(await enqueue(env, tgu.id, "sendAnimation", { animation: "anim:accepted", caption: r.row.type === "table" ? t(l, "table_ok", { n: r.row.num, t: r.row.table_no }) : t(l, "order_ok", { n: r.row.num }), parse_mode: "HTML" }, "guest:order_ok"));
+        if (r.row.pay === "card") r.ids.push(await enqueue(env, tgu.id, "sendMessage", { text: t(l, "pay_card", { sum: money(r.row.total, l), card: await setting(env, "card"), owner: await setting(env, "card_owner") }), parse_mode: "HTML" }, "guest:pay"));
+      }
       ctx.waitUntil(flush(env, r.ids));
       return out({ ok: true, num: r.row.num, status: r.row.status, total: r.row.total, dup: !r.created, card: r.row.pay === "card" ? { number: await setting(env, "card"), owner: await setting(env, "card_owner") } : null }, 200, h);
     }
     if (route === "booking") {
-      const r = await core.createBooking(env, { ...body, source: "site", tg_user: null });
+      const r = await core.createBooking(env, { ...body, source: tgu ? "app" : "site", tg_user: tgu?.id || null });
+      if (tgu && r.created) r.ids.push(await enqueue(env, tgu.id, "sendAnimation", { animation: "anim:booking", caption: t(r.row.lang, "b_ok", { n: r.row.num }), parse_mode: "HTML" }, "guest:b_ok"));
       ctx.waitUntil(flush(env, r.ids));
       return out({ ok: true, num: r.row.num, status: r.row.status, dup: !r.created }, 200, h);
     }

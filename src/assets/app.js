@@ -36,6 +36,24 @@
      Script (works in Uzbekistan), then the bot Worker directly. */
   const API = (root.dataset.api || '').split(/[\s,]+/).filter(Boolean);
   const newId = p => p + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+  /* ---------------- Telegram Mini App: the menu opened from the bot (menu.html?tg=1) ----------------
+     Same page, without the site chrome; the order is signed with Telegram's initData, so its statuses come to the guest's chat. */
+  const TG = { on: /[?&]tg=1\b/.test(location.search) || /tgWebAppData/.test(location.hash), app: null, user: null };
+  if (TG.on) {
+    root.classList.add('in-tg');
+    const s = document.createElement('script'); s.src = 'https://telegram.org/js/telegram-web-app.js';
+    s.onload = () => {
+      const w = window.Telegram?.WebApp; if (!w || !w.initData) return;
+      TG.app = w; TG.user = w.initDataUnsafe?.user || null;
+      // follow the Telegram theme, so the app looks native in light and dark Telegram
+      const dark = w.colorScheme !== 'light', bg = dark ? '#121010' : '#f6efe2';
+      root.dataset.theme = dark ? 'dark' : 'light';
+      w.ready(); w.expand(); try { w.setHeaderColor(bg); w.setBackgroundColor(bg); w.setBottomBarColor?.(bg); w.disableVerticalSwipes?.(); } catch {}
+      window.dispatchEvent(new Event('polvon-tg'));
+    };
+    document.head.append(s);
+  }
+  const tgName = () => TG.user ? [TG.user.first_name, TG.user.last_name].filter(Boolean).join(' ') : '';
   // this browser's id: links its orders/bookings to its push subscription (no name, no phone)
   const CID = (() => { let c = store.get('cid', ''); if (!c) { c = newId('c'); store.set('cid', c); } return c; })();
   async function apiCall(route, payload) {
@@ -139,7 +157,7 @@
         <h2>${x.kind === 'order' ? esc(tt('Заказ')) : esc(tt('Бронь'))}${x.num ? ' №' + x.num : ''}</h2>
         <p class="trk-big">${esc(label(x))}</p>${x.kind === 'booking' && x.date ? `<p class="co-hint">${esc(x.date)} · ${esc(x.time || '')}${x.fee ? ' · ' + esc(tt('стоимость брони')) + ' ' + fmt(x.fee) : ''}</p>` : ''}
         ${steps(x)}${payHtml(x)}${FINAL[x.kind].includes(x.status) ? '' : pushOffer()}
-        <div class="co-done-actions"><a class="btn btn--ghost" href="tel:+998953434343">${esc(tt('Позвонить'))}</a><a class="btn btn--ghost" href="https://t.me/Olim_Polvon_yordamchi_bot" target="_blank" rel="noopener">Telegram</a>${FINAL[x.kind].includes(x.status) || x.failed ? `<button type="button" class="mini-btn" data-hide="${esc(x.id)}">${esc(tt('Скрыть'))}</button>` : ''}</div></div>`;
+        <div class="co-done-actions"><a class="btn btn--ghost" href="tel:+998953434343">${esc(tt('Позвонить'))}</a><a class="btn btn--ghost" href="https://t.me/Olim_Polvon_uz_bot" target="_blank" rel="noopener">Telegram</a>${FINAL[x.kind].includes(x.status) || x.failed ? `<button type="button" class="mini-btn" data-hide="${esc(x.id)}">${esc(tt('Скрыть'))}</button>` : ''}</div></div>`;
       if (!dlg.open) dlg.showModal();
       window.POLVON_PUSH?.draw();
     }
@@ -236,10 +254,10 @@
     return { draw, state, enable };
   })();
   window.POLVON_PUSH = push;
-  const pushOffer = () => push.state() === 'no' ? '' : `<div class="push-offer" data-push-offer><span>🔔 ${esc(tt('Сообщить, когда статус изменится?'))}</span><button type="button" class="mini-btn">${esc(tt('Включить уведомления'))}</button></div>`;
+  const pushOffer = () => TG.on || push.state() === 'no' ? '' : `<div class="push-offer" data-push-offer><span>🔔 ${esc(tt('Сообщить, когда статус изменится?'))}</span><button type="button" class="mini-btn">${esc(tt('Включить уведомления'))}</button></div>`;
 
-  const linkTg = () => $$('a[href^="https://t.me/Olim_Polvon_yordamchi_bot"]').forEach(a => { if (!/start=/.test(a.href)) a.href = 'https://t.me/Olim_Polvon_yordamchi_bot?start=c_' + CID; });
-  linkTg(); document.addEventListener('click', e => { if (e.target.closest('a[href^="https://t.me/Olim_Polvon_yordamchi_bot"]')) linkTg(); }, true);
+  const linkTg = () => $$('a[href^="https://t.me/Olim_Polvon_uz_bot"]').forEach(a => { if (!/start=/.test(a.href)) a.href = 'https://t.me/Olim_Polvon_uz_bot?start=c_' + CID; });
+  linkTg(); document.addEventListener('click', e => { if (e.target.closest('a[href^="https://t.me/Olim_Polvon_uz_bot"]')) linkTg(); }, true);
 
   /* ---------------- menu data (+ admin overrides) ---------------- */
   const BASE_MENU = (() => { try { return JSON.parse($('#menu-data').textContent); } catch { return []; } })();
@@ -576,7 +594,7 @@
       if (f.length) return { text: f.map(d => `${d.name}: ${d.price ? fmt(d.price) : tt('цена уточняется')}`).join('; ') + '.', cards: f };
     }
     if (has('брон', 'стол', 'зарезерв', 'место', 'band', 'stol', 'book', 'reserv', 'table')) return { text: tt('Конечно! Откройте форму брони: дата, время и число гостей — займёт минуту. Администратор перезвонит, подтвердит и назовёт стоимость брони. Свою еду, торты и напитки приносить нельзя — торт можно заказать у нас.'), link: [tt('Перейти к брони'), 'contact.html#booking'] };
-    if (has('достав', 'привез', 'на дом', 'yetkaz', 'с собой', 'навынос', 'deliver', 'takeaway', 'olib ket')) return { text: tt('Доставка есть: звоните +998 90 916 77 74 или +998 97 766 99 88, либо закажите в Telegram-боте @Olim_Polvon_yordamchi_bot. Можно и забрать с собой.'), link: [tt('Открыть Telegram-бот'), 'https://t.me/Olim_Polvon_yordamchi_bot'] };
+    if (has('достав', 'привез', 'на дом', 'yetkaz', 'с собой', 'навынос', 'deliver', 'takeaway', 'olib ket')) return { text: tt('Доставка есть: звоните +998 90 916 77 74 или +998 97 766 99 88, либо закажите в Telegram-боте @Olim_Polvon_uz_bot. Можно и забрать с собой.'), link: [tt('Открыть Telegram-бот'), 'https://t.me/Olim_Polvon_uz_bot'] };
     if (has('остр', 'перц', 'пикант', 'spic', 'hot', 'achchiq')) return { text: tt('Если любите поострее — ковурма лагман, гушт сай и острые колбаски.'), cards: pick(['Ковурма лагман', 'Гушт сай', 'Колбаски острые']) };
     if (has('компан', 'много', 'банкет', 'день рожд', 'праздн', 'семь', 'group', 'party', 'family', 'davra', 'oila', 'bayram')) return { text: tt('На компанию берут шилпилдок на большом блюде, норин на килограмм и шашлыки.'), cards: pick(['Шилпилдок, среднее блюдо', 'Норин', 'Наполеон']) };
     if (has('час', 'работа', 'открыт', 'закры', 'когда', 'hour', 'open', 'close', 'soat', 'vaqt', 'ochiq')) return { text: tt('Мы работаем каждый день. С утра — илик шурпа, нохат шурак и халим, вечером — шашлыки на углях.') };
@@ -780,7 +798,7 @@
     const needAddr = !(coDraft.lat && coDraft.ok === '1');
     return seg + `<form class="co-form" novalidate>
       <div class="co-grid">
-        <label class="field"><span>${esc(tt('Имя'))}</span><input name="name" autocomplete="name" required value="${esc(g.name || '')}"></label>
+        <label class="field"><span>${esc(tt('Имя'))}</span><input name="name" autocomplete="name" required value="${esc(g.name || tgName())}"></label>
         <label class="field"><span>${esc(tt('Телефон'))}</span><input name="phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="+998 __ ___ __ __" required value="${esc(g.phone || '')}"></label>
       </div>
       ${del ? `<div class="field"><span>${esc(tt('Куда привезти'))}</span>${geoBlock()}</div>
@@ -873,7 +891,7 @@
     const list = store.get('orders', []); list.unshift(o); store.set('orders', list.slice(0, 30));
     // to the server (repeats until it answers ok); prices are checked there again
     sync.put({ key: 'order:' + o.id, route: 'order', payload: { id: o.id, type: o.type, table: o.table, name: o.name, phone: o.phone, address: o.address, lat: o.lat, lon: o.lon, live: o.live,
-      when: o.when, pay: o.pay === 'transfer' ? 'card' : o.pay, note: o.note, lang: LANG, cid: CID, items: cart.lines().map(l => ({ id: l.d.sid || l.d.id, q: l.q, name: l.d.name, price: l.d.price })) } });
+      when: o.when, pay: o.pay === 'transfer' ? 'card' : o.pay, note: o.note, lang: LANG, cid: CID, tg_init: TG.app?.initData || undefined, items: cart.lines().map(l => ({ id: l.d.sid || l.d.id, q: l.q, name: l.d.name, price: l.d.price })) } });
     track.add('order', o.id, { total: o.total, pay: o.pay === 'transfer' ? 'card' : o.pay, type: o.type });
     if (coMode !== 'table') store.set('guest', { name: o.name, phone: o.phone, address: o.address || coSaved().address || '' });
     const kind = { delivery: tt('Доставка'), pickup: tt('Навынос'), table: tt('Стол') + ' №' + TABLE }[coMode];
@@ -890,8 +908,9 @@
       ${o.pay === 'transfer' ? `<div class="co-pay" data-pay="${esc(o.id)}"></div>` : ''}
       ${o.type !== 'table' ? pushOffer() : ''}
       <p class="co-summary">${esc(text)}</p>
-      <div class="co-done-actions"><a class="btn" href="https://t.me/Olim_Polvon_yordamchi_bot" target="_blank" rel="noopener" data-co-tg>${esc(tt('Продублировать в Telegram'))}</a><a class="btn btn--ghost" href="tel:+998909167774">${esc(tt('Позвонить'))}</a></div></div>`;
+      <div class="co-done-actions"><a class="btn" href="https://t.me/Olim_Polvon_uz_bot" target="_blank" rel="noopener" data-co-tg>${esc(tt('Продублировать в Telegram'))}</a><a class="btn btn--ghost" href="tel:+998909167774">${esc(tt('Позвонить'))}</a></div></div>`;
     co.querySelector('[data-co-tg]')?.addEventListener('click', () => { navigator.clipboard?.writeText(text).then(() => toast(tt('Заказ скопирован — вставьте его в Telegram-бот'))).catch(() => {}); });
+    if (TG.on) { const acts = co.querySelector('.co-done-actions'); if (acts) acts.innerHTML = `<button type="button" class="btn" data-tg-close>${esc(tt('Вернуться в чат'))}</button>`; co.querySelector('[data-tg-close]')?.addEventListener('click', () => TG.app ? TG.app.close() : history.back()); }
     if (o.live) startLive(o.id);
     co.querySelector('h2').focus();
     window.POLVON_TRACK?.draw(); window.POLVON_PUSH?.draw();
@@ -1472,7 +1491,7 @@
       if (!ok) return;
       const b = { id: newId('b'), name: booking.elements.name.value.trim(), phone: booking.elements.phone.value.trim(), date: date.value, time: booking.elements.time.value, guests, zone: booking.elements.zone.value, note: booking.elements.note.value.trim(), status: 'new' };
       const list = store.get('bookings', []); list.unshift(b); store.set('bookings', list.slice(0, 30));
-      sync.put({ key: 'booking:' + b.id, route: 'booking', payload: { id: b.id, name: b.name, phone: b.phone, date: b.date, time: b.time, guests: b.guests, zone: b.zone, note: b.note, lang: LANG, cid: CID } });
+      sync.put({ key: 'booking:' + b.id, route: 'booking', payload: { id: b.id, name: b.name, phone: b.phone, date: b.date, time: b.time, guests: b.guests, zone: b.zone, note: b.note, lang: LANG, cid: CID, tg_init: TG.app?.initData || undefined } });
       track.add('booking', b.id, { date: b.date, time: b.time });
       const bs = $('[data-booking-sync]'); if (bs) bs.dataset.sync = b.id;
       window.POLVON_TRACK?.draw();

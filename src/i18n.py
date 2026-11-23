@@ -1,6 +1,7 @@
 # Translations: Russian source -> (Uzbek Latin, English).
 # Strings not listed here stay in Russian. Prices/units are handled by regex in build_i18n.py.
 T = {
+'Вернуться в чат': ('Chatga qaytish', 'Back to the chat'),
 'Включаем…': ('Yoqilmoqda…', 'Turning on…'),
 'Уведомления': ('Bildirishnomalar', 'Notifications'),
 'Уведомления включены': ('Bildirishnomalar yoqilgan', 'Notifications are on'),
@@ -306,7 +307,7 @@ T = {
 "400 г": ("400 g", "400 g"),
 "600 г": ("600 g", "600 g"),
 "5,0 из 5 по 1500+ оценкам в Яндекс Картах": ("Yandex Xaritalarda 1500+ baho bo'yicha 5,0", "5.0 out of 5 from 1,500+ ratings on Yandex Maps"),
-"@Olim_Polvon_yordamchi_bot — всё меню": ("@Olim_Polvon_yordamchi_bot — to'liq menyu", "@Olim_Polvon_yordamchi_bot — full menu"),
+"@Olim_Polvon_uz_bot — всё меню": ("@Olim_Polvon_uz_bot — to'liq menyu", "@Olim_Polvon_uz_bot — full menu"),
 "AI-помощник Olim Polvon": ("Olim Polvon AI-yordamchisi", "Olim Polvon AI assistant"),
 "AI-помощник знает всё меню: подберёт блюда поострее или для компании, подскажет, как оформить доставку, и поможет забронировать стол.":
  ("AI-yordamchi butun menyuni biladi: achchiqroq yoki davra uchun taom tanlab beradi, yetkazib berishni tushuntiradi va stol band qilishga yordam beradi.",
@@ -379,7 +380,7 @@ T = {
 "Густые супы на костном бульоне — с утра, с 06:00.": ("Suyak sho'rvasidagi quyuq sho'rvalar — ertalabdan, 06:00 dan.", "Hearty bone-broth soups from 6:00 in the morning."),
 "Да, позвоните или оставьте заявку с пометкой «праздник» — администратор предложит меню и порции на компанию.": ("Ha, qo'ng'iroq qiling yoki «bayram» deb ariza qoldiring — administrator menyu va davra porsiyalarini taklif qiladi.", "Yes — call us or leave a request marked “celebration” and the manager will suggest a menu and sharing portions."),
 "Да, при ресторане работает мясной центр: казы и рулеты из конины, говяжий и бараний рулет, копчёная курица.": ("Ha, restoranda go'sht markazi bor: ot go'shtidan qazi va rulet, mol va qo'y go'shti ruleti, dudlangan tovuq.", "Yes, the restaurant has its own meat shop: horse-meat kazy and roulades, beef and lamb roulades, smoked chicken."),
-"Да. Заказать можно по телефонам +998 90 916 77 74 и +998 97 766 99 88 или через Telegram-бот @Olim_Polvon_yordamchi_bot.": ("Ha. +998 90 916 77 74 va +998 97 766 99 88 telefonlari yoki @Olim_Polvon_yordamchi_bot Telegram-boti orqali buyurtma bering.", "Yes. Order by phone at +998 90 916 77 74 or +998 97 766 99 88, or via the Telegram bot @Olim_Polvon_yordamchi_bot."),
+"Да. Заказать можно по телефонам +998 90 916 77 74 и +998 97 766 99 88 или через Telegram-бот @Olim_Polvon_uz_bot.": ("Ha. +998 90 916 77 74 va +998 97 766 99 88 telefonlari yoki @Olim_Polvon_uz_bot Telegram-boti orqali buyurtma bering.", "Yes. Order by phone at +998 90 916 77 74 or +998 97 766 99 88, or via the Telegram bot @Olim_Polvon_uz_bot."),
 "Дата": ("Sana", "Date"),
 "Демо-версия: ответы пока заготовлены, подключим Gemini позже": ("Demo-versiya: javoblar hozircha tayyor, Gemini keyinroq ulanadi", "Demo: answers are scripted for now; Gemini will be connected later"),
 "Демо: заявка сохранена в админ-панели этого браузера. После запуска будет приходить администратору в Telegram.": ("Demo: ariza shu brauzerdagi admin panelida saqlandi. Ishga tushgach, administratorga Telegramda keladi.", "Demo: the request is saved in this browser's admin panel. After launch it will go to the manager in Telegram."),
@@ -392,7 +393,7 @@ T = {
 "Долма, цена уточняется": ("Do'lma, narxi aniqlanmoqda", "Dolma, price to be confirmed"),
 "Домашняя колбаса из конины": ("Ot go'shtidan uy qazisi", "Homemade horse-meat sausage"),
 "Доставка": ("Yetkazib berish", "Delivery"),
-"Доставка есть: звоните +998 90 916 77 74 или +998 97 766 99 88, либо закажите в Telegram-боте @Olim_Polvon_yordamchi_bot. Можно и забрать с собой.": ("Yetkazib berish bor: +998 90 916 77 74 yoki +998 97 766 99 88 ga qo'ng'iroq qiling yoki @Olim_Polvon_yordamchi_bot Telegram-botida buyurtma bering. Olib ketish ham mumkin.", "We deliver: call +998 90 916 77 74 or +998 97 766 99 88, or order in the Telegram bot @Olim_Polvon_yordamchi_bot. Takeaway is available too."),
+"Доставка есть: звоните +998 90 916 77 74 или +998 97 766 99 88, либо закажите в Telegram-боте @Olim_Polvon_uz_bot. Можно и забрать с собой.": ("Yetkazib berish bor: +998 90 916 77 74 yoki +998 97 766 99 88 ga qo'ng'iroq qiling yoki @Olim_Polvon_uz_bot Telegram-botida buyurtma bering. Olib ketish ham mumkin.", "We deliver: call +998 90 916 77 74 or +998 97 766 99 88, or order in the Telegram bot @Olim_Polvon_uz_bot. Takeaway is available too."),
 "Доставка и навынос": ("Yetkazib berish va olib ketish", "Delivery and takeaway"),
 "Доставка:": ("Yetkazib berish:", "Delivery:"),
 "Европейская кухня": ("Yevropa taomlari", "European cuisine"),

@@ -2,7 +2,7 @@
 import { CATS, ITEMS } from "./menu.gen.js";
 import { tg, send, edit, answer, ik, btn, url, reply, noKb } from "./tg.js";
 import { t, ROLE_NAMES } from "./texts.js";
-import { now, esc, money, J, log, kvGet, kvSet, devIds, localDay, layoutFix, setting, uid } from "./lib.js";
+import { now, esc, money, J, log, kvGet, kvSet, devIds, localDay, layoutFix, setting, uid, menuApp } from "./lib.js";
 import { enqueue, flush, runDue } from "./outbox.js";
 import * as core from "./core.js";
 import { ask } from "./ai.js";
@@ -34,8 +34,10 @@ const cartCount = c => Object.values(c).reduce((a, b) => a + b, 0);
 const cartLines = c => Object.entries(c).map(([i, q]) => ({ d: ITEMS[+i], i: +i, q })).filter(x => x.d && x.d.p != null && x.q > 0);
 const cartTotal = c => cartLines(c).reduce((s, l) => s + l.d.p * l.q, 0);
 
+let ENV = null; // set per update: the keyboard needs the site address
 function mainKb(u) {
-  const l = u.lang, rows = [[t(l, "m_menu"), t(l, "m_cart")], [t(l, "m_book"), t(l, "m_my")], [t(l, "m_info"), t(l, "m_lang")]];
+  const l = u.lang, menuBtn = ENV ? { text: t(l, "m_menu"), web_app: { url: menuApp(ENV, l) } } : t(l, "m_menu");
+  const rows = [[menuBtn, t(l, "m_cart")], [t(l, "m_book"), t(l, "m_my")], [t(l, "m_info"), t(l, "m_lang")]];
   if (can(u, "staff")) rows.push([t(l, "m_staff")]);
   return reply(rows, { is_persistent: true });
 }
@@ -75,6 +77,7 @@ async function putPhoto(env, u, msg, key, caption, kb) {
 async function showCats(env, u, msg) {
   const l = u.lang, rows = [];
   const b = (c, i) => btn(`${CAT_ICON[c.id] || "🍽"} ${c.n[li(l)]} · ${catItems(i).length}`, "c:" + i);
+  rows.push([{ text: t(l, "open_app"), web_app: { url: menuApp(env, l) } }]);
   for (let i = 0; i < CATS.length; i += 2) rows.push(CATS.slice(i, i + 2).map((c, k) => b(c, i + k)));
   if (cartCount(u.cartObj)) rows.push([btn(cartLine(u), "k:show")]);
   return putPhoto(env, u, msg, "_banner", `🍽 <b>${t(l, "m_menu").replace(/^\S+\s/, "")} · Olim Polvon</b>\n${t(l, "pick_cat")}`, ik(rows));
@@ -373,6 +376,7 @@ function quickIntent(text) {
 
 // ---------- entry points
 export async function handleUpdate(env, upd, ctx) {
+  ENV = env;
   if (upd.callback_query) return onCallback(env, upd.callback_query, ctx);
   const m = upd.message || upd.edited_message;
   if (!m || !m.from || m.chat?.type !== "private") return;

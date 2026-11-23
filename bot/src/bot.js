@@ -321,6 +321,14 @@ async function findUser(env, who) {
 const ROLE_WORDS = { orders: "orders", заказ: "orders", buyurtma: "orders", bookings: "bookings", брон: "bookings", bron: "bookings", checker: "checker", провер: "checker", менедж: "checker", владел: "checker", dev: "dev", разраб: "dev", guest: "", гость: "", снять: "" };
 const roleOf = s => { const x = String(s || "").toLowerCase(); for (const [k, v] of Object.entries(ROLE_WORDS)) if (x.startsWith(k) || x.includes(k)) return v; return null; };
 
+// one-time link: whoever opens it within 48 h gets the role
+async function sendInvite(env, u, role) {
+  const code = uid().slice(0, 12);
+  await env.DB.prepare("INSERT INTO invites(code,role,by,created) VALUES(?,?,?,?)").bind(code, role, u.id, now()).run();
+  await log(env, "info", "roles", `${u.name} made an invite: ${role}`);
+  return send(env, u.id, `🔗 Ссылка для роли «<b>${ROLE_NAMES[role]}</b>» — одноразовая, действует 48 часов. Перешлите её сотруднику: кто откроет, тот сразу получит роль.\n\nhttps://t.me/${env.BOT_USERNAME}?start=r_${code}`);
+}
+
 async function setRole(env, by, id, role, ctx) {
   if (!["orders", "bookings", "checker", "dev", ""].includes(role)) return "Роль: orders, bookings, checker, dev";
   if ((role === "dev") && !can(by, "dev")) return "Назначать разработчика может только разработчик.";
@@ -365,6 +373,8 @@ async function aiReply(env, u, text, ctx) {
     if (added.length) { a.reply += "\n\n" + t(u.lang, "added", { d: added.join(", ") }); if (a.do !== "cart") rows.push([btn(t(u.lang, "cart_n", { n: cartCount(u.cartObj) }), "k:show")]); }
   } else {
     const SHOW = { orders: ["📦 Открытые заказы", "p:orders"], bookings_today: ["📅 Брони сегодня", "p:bt"], bookings_tomorrow: ["📅 Брони завтра", "p:bm"], stats: ["📊 Статистика", "p:stats"], undelivered: ["⚠️ Недоставленное", "p:und"], receipts: ["🧾 Чеки", "p:receipts"], health: ["🩺 Здоровье", "p:health"], logs: ["📜 Логи", "p:logs"] };
+    const invRole = a.invite && can(u, "manage") ? roleOf(a.invite.role || a.invite) : null;
+    if (invRole && !(invRole === "dev" && !can(u, "dev"))) ctx.waitUntil(sendInvite(env, u, invRole));
     if (a.grant && can(u, "manage")) {
       const target = await findUser(env, a.grant.who), role = roleOf(a.grant.role);
       if (target && role !== null && !(role === "dev" && !can(u, "dev")))
@@ -477,6 +487,12 @@ export async function handleUpdate(env, upd, ctx) {
     if (cmd === "/undelivered") return listUndelivered(env, u);
     if (cmd === "/receipts") return listReceipts(env, u);
     if (cmd === "/roles" && can(u, "manage")) return showRoles(env, u);
+    if (cmd === "/invite" && can(u, "manage")) { // /invite orders|bookings|checker|dev
+      const role = roleOf(args.join(" "));
+      if (!role) return send(env, u.id, "Для какой роли ссылка? Пример: <code>/invite orders</code>, <code>/invite брони</code>, <code>/invite checker</code>");
+      if (role === "dev" && !can(u, "dev")) return send(env, u.id, "Ссылку на роль разработчика может дать только разработчик.");
+      return sendInvite(env, u, role);
+    }
     if (cmd === "/grant" && can(u, "manage")) { // /grant 123456789 | @username | +998901234567  orders|bookings|checker|dev|guest
       // who = the words that are not a role ("/grant +998 90 111 22 33 приём заказов" works too)
       const roleWords = args.filter(w => roleOf(w) !== null && !/^[@+\d]/.test(w)), whoWords = args.filter(w => !roleWords.includes(w) && !/^(при[её]м|qabul)$/i.test(w));
@@ -655,10 +671,7 @@ async function onCallback(env, q, ctx) {
   }
   if (a === "inv" && can(u, "manage")) {
     if (b === "dev" && !can(u, "dev")) return ok("Только разработчик", true);
-    const code = uid().slice(0, 12);
-    await env.DB.prepare("INSERT INTO invites(code,role,by,created) VALUES(?,?,?,?)").bind(code, b, u.id, now()).run();
-    await ok();
-    return send(env, u.id, `Ссылка для роли «${ROLE_NAMES[b]}» (одноразовая, 48 часов). Перешлите её сотруднику:\nhttps://t.me/${env.BOT_USERNAME}?start=r_${code}`);
+    await ok(); return sendInvite(env, u, b);
   }
   if (a === "gr" && can(u, "manage")) { await ok(); await tg(env, "editMessageReplyMarkup", { chat_id: u.id, message_id: msg, reply_markup: ik([]) }, { quiet: true }); return send(env, u.id, await setRole(env, u, +b, c === "guest" ? "" : c, ctx)); }
   if (a === "rm" && can(u, "manage")) { await ok(); return send(env, u.id, await setRole(env, u, +b, "", ctx)); }

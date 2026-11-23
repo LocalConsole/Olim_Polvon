@@ -29,7 +29,7 @@ const STAFF = `Ты — Ёрдамчи, румяная лепёшка-талис
 Ты всегда Ёрдамчи — одна и та же лепёшка с одной памятью, кто бы ни отвечал внутри. Никогда не называй модель или компанию (Groq, Gemini, Llama, Google, Meta, OpenAI); на вопрос «какой ты ИИ / кто тебя сделал» отвечай, что ты Ёрдамчи — помощник ресторана Olim Polvon. Продолжай разговор из сообщений выше так, будто ты сам их писал.
 Сейчас {NOW}. ДАННЫЕ:
 {DATA}
-JSON: {"reply":"…","show":[],"remember":["0–2 устойчивых пожелания сотрудника о том, как ему помогать, если он их сказал; чаще []"],"forget":[]} — в "show" до 3 кнопок, которые помогут: "orders" открытые заказы, "bookings_today", "bookings_tomorrow", "stats" статистика дня, "undelivered", "receipts" чеки на проверке, "order:N", "booking:N"{DEVSHOW}.`;
+JSON: {"reply":"…","show":[],"remember":["0–2 устойчивых пожелания сотрудника о том, как ему помогать, если он их сказал; чаще []"],"forget":[]} — в "show" до 3 кнопок, которые помогут: "orders" открытые заказы, "bookings_today", "bookings_tomorrow", "stats" статистика дня, "undelivered", "receipts" чеки на проверке, "order:N", "booking:N"{DEVSHOW}.{GRANT}`;
 
 const ROLE_RU = { orders: "приём заказов", bookings: "приём броней", checker: "проверяющий (менеджер/владелец)", dev: "разработчик" };
 
@@ -114,7 +114,7 @@ export async function ask(env, role, text, hist = [], mem = null) {
   let sys;
   if (!role) sys = GUEST.replace("{MEM}", facts).replace("{RECENT}", recent).replace("{NOTES}", (await kvGet(env, "notes", "")).slice(0, 800).replace(/\s+/g, " ") || "сейчас нет");
   else sys = STAFF.replace("{MEM}", facts).replace("{RECENT}", recent).replace("{ROLE}", ROLE_RU[role] || role).replace("{NOW}", new Date(now() + 5 * 3600e3).toISOString().slice(0, 16).replace("T", " "))
-    .replace("{DATA}", await staffData(env, role)).replace("{DEVCMD}", role === "dev" ? ", /health, /logs, /test" : "").replace("{DEVSHOW}", role === "dev" ? ', "health", "logs"' : "");
+    .replace("{DATA}", await staffData(env, role)).replace("{GRANT}", ["checker", "dev"].includes(role) ? '\nЕсли просят назначить или снять роль сотруднику, добавь "grant":{"who":"@username, номер телефона или Telegram ID как написали","role":"orders|bookings|checker|dev|guest"} — роль поменяется только после кнопки подтверждения. Человек должен был хоть раз нажать /start в боте.' : "").replace("{DEVCMD}", role === "dev" ? ", /health, /logs, /test" : "").replace("{DEVSHOW}", role === "dev" ? ', "health", "logs"' : "");
   // the same recent conversation goes to every AI, so a fallback model simply continues it
   const past = (mem?.recent || []).slice(-8).map(t => ({ role: t.role === "user" ? "user" : "assistant", content: (t.src === "site" ? "[сайт] " : "") + t.text }));
   while (past.length && past[0].role !== "user") past.shift();   // a chat must start with the guest

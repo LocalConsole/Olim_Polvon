@@ -309,6 +309,18 @@ async function showRoles(env, u) {
   for (const x of L) if (x.id !== u.id && !(x.role === "dev" && !can(u, "dev"))) rows.push([btn(`✖️ Снять: ${x.name}`.slice(0, 40), "rm:" + x.id)]);
   return send(env, u.id, text, ik(rows));
 }
+// a person who has started the bot, by Telegram id, @username or phone (if they shared it with the bot)
+async function findUser(env, who) {
+  const w = String(who || "").trim();
+  if (/^\d{5,15}$/.test(w) && !/^998/.test(w)) return env.DB.prepare("SELECT * FROM users WHERE id=?").bind(+w).first();
+  if (/^@?[A-Za-z][\w]{3,31}$/.test(w)) return env.DB.prepare("SELECT * FROM users WHERE lower(username)=lower(?)").bind(w.replace(/^@/, "")).first();
+  const digits = w.replace(/\D/g, "");
+  if (digits.length >= 9) return env.DB.prepare("SELECT * FROM users WHERE replace(replace(replace(phone,'+',''),' ',''),'-','') LIKE ?").bind("%" + digits.slice(-9)).first();
+  return null;
+}
+const ROLE_WORDS = { orders: "orders", заказ: "orders", buyurtma: "orders", bookings: "bookings", брон: "bookings", bron: "bookings", checker: "checker", провер: "checker", менедж: "checker", владел: "checker", dev: "dev", разраб: "dev", guest: "", гость: "", снять: "" };
+const roleOf = s => { const x = String(s || "").toLowerCase(); for (const [k, v] of Object.entries(ROLE_WORDS)) if (x.startsWith(k) || x.includes(k)) return v; return null; };
+
 async function setRole(env, by, id, role, ctx) {
   if (!["orders", "bookings", "checker", "dev", ""].includes(role)) return "Роль: orders, bookings, checker, dev";
   if ((role === "dev") && !can(by, "dev")) return "Назначать разработчика может только разработчик.";
@@ -353,6 +365,12 @@ async function aiReply(env, u, text, ctx) {
     if (added.length) { a.reply += "\n\n" + t(u.lang, "added", { d: added.join(", ") }); if (a.do !== "cart") rows.push([btn(t(u.lang, "cart_n", { n: cartCount(u.cartObj) }), "k:show")]); }
   } else {
     const SHOW = { orders: ["📦 Открытые заказы", "p:orders"], bookings_today: ["📅 Брони сегодня", "p:bt"], bookings_tomorrow: ["📅 Брони завтра", "p:bm"], stats: ["📊 Статистика", "p:stats"], undelivered: ["⚠️ Недоставленное", "p:und"], receipts: ["🧾 Чеки", "p:receipts"], health: ["🩺 Здоровье", "p:health"], logs: ["📜 Логи", "p:logs"] };
+    if (a.grant && can(u, "manage")) {
+      const target = await findUser(env, a.grant.who), role = roleOf(a.grant.role);
+      if (target && role !== null && !(role === "dev" && !can(u, "dev")))
+        rows.push([btn(`✅ ${role ? "Назначить" : "Снять роль"}: ${target.name}${target.username ? " @" + target.username : ""}${role ? " — " + ROLE_NAMES[role] : ""}`.slice(0, 60), `gr:${target.id}:${role || "guest"}`)]);
+      else if (!target) a.reply += "\n\n(Этого человека нет в боте: пусть нажмёт /start, или дайте ссылку-приглашение в /panel → Роли.)";
+    }
     for (const s of (Array.isArray(a.show) ? a.show : []).slice(0, 3)) {
       const m = /^(order|booking):(\d+)$/.exec(s);
       if (m) rows.push([btn(`${m[1] === "order" ? "📦 Заказ" : "📅 Бронь"} №${m[2]}`, `p:${m[1][0]}:${m[2]}`)]);
@@ -459,7 +477,14 @@ export async function handleUpdate(env, upd, ctx) {
     if (cmd === "/undelivered") return listUndelivered(env, u);
     if (cmd === "/receipts") return listReceipts(env, u);
     if (cmd === "/roles" && can(u, "manage")) return showRoles(env, u);
-    if (cmd === "/grant" && can(u, "manage")) return send(env, u.id, await setRole(env, u, +args[0], (args[1] || "").replace("guest", ""), ctx));
+    if (cmd === "/grant" && can(u, "manage")) { // /grant 123456789 | @username | +998901234567  orders|bookings|checker|dev|guest
+      // who = the words that are not a role ("/grant +998 90 111 22 33 приём заказов" works too)
+      const roleWords = args.filter(w => roleOf(w) !== null && !/^[@+\d]/.test(w)), whoWords = args.filter(w => !roleWords.includes(w) && !/^(при[её]м|qabul)$/i.test(w));
+      const role = roleOf(roleWords.join(" ")), target = await findUser(env, whoWords.join(" "));
+      if (role === null) return send(env, u.id, "Роль: orders, bookings, checker, dev или guest (снять роль).\nПример: <code>/grant @ali orders</code> или <code>/grant +998901234567 bookings</code>");
+      if (!target) return send(env, u.id, "Не нашёл такого человека. Он должен сначала нажать /start в боте. По номеру найду, только если он поделился контактом с ботом. Можно дать ссылку-приглашение: /panel → Роли.");
+      return send(env, u.id, await setRole(env, u, target.id, role, ctx));
+    }
     if (cmd === "/health" && can(u, "dev")) return health(env, u);
     if (cmd === "/logs" && can(u, "dev")) return showLogs(env, u);
     if (cmd === "/test" && can(u, "dev")) { const on = (await kvGet(env, "test_mode", "0")) !== "1"; await kvSet(env, "test_mode", on ? "1" : "0"); return send(env, u.id, on ? "🧪 Тест-режим ВКЛ: все новые заказы и брони приходят только разработчикам, с пометкой ТЕСТ." : "Тест-режим выключен."); }
@@ -635,6 +660,7 @@ async function onCallback(env, q, ctx) {
     await ok();
     return send(env, u.id, `Ссылка для роли «${ROLE_NAMES[b]}» (одноразовая, 48 часов). Перешлите её сотруднику:\nhttps://t.me/${env.BOT_USERNAME}?start=r_${code}`);
   }
+  if (a === "gr" && can(u, "manage")) { await ok(); await tg(env, "editMessageReplyMarkup", { chat_id: u.id, message_id: msg, reply_markup: ik([]) }, { quiet: true }); return send(env, u.id, await setRole(env, u, +b, c === "guest" ? "" : c, ctx)); }
   if (a === "rm" && can(u, "manage")) { await ok(); return send(env, u.id, await setRole(env, u, +b, "", ctx)); }
   return ok();
 }

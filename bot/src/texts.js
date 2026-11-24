@@ -70,9 +70,9 @@ export const T = {
   status_upd: ["Заказ №{n}: {s}", "№{n} buyurtma: {s}", "Order #{n}: {s}"],
   my_none: ["У вас пока нет заказов и броней.", "Hozircha buyurtma va bronlaringiz yo'q.", "You have no orders or bookings yet."],
   // booking
-  b_rules: ["Бронь платная: стоимость назовёт администратор, когда перезвонит. Стол держим 20 минут. Свою еду, торты и напитки приносить нельзя — торт и всё для праздника можно заказать у нас.",
-            "Bron pullik: narxini administrator qo'ng'iroq qilganda aytadi. Stol 20 daqiqa saqlanadi. O'z ovqatingiz, tort va ichimliklar olib kirish mumkin emas — tort va bayram uchun hammasini bizdan buyurtma qilsa bo'ladi.",
-            "Booking is paid: the administrator will tell the price when calling back. We hold the table for 20 minutes. Outside food, cakes and drinks are not allowed — order a cake and everything for the party from us."],
+  b_rules: ["Для брони нужен залог 100 000 сум. Администратор перезвонит и подтвердит. Стол держим 20 минут. Свою еду, торты и напитки приносить нельзя — торт и всё для праздника можно заказать у нас.",
+            "Bron uchun 100 000 so'm zalog kerak. Administrator qo'ng'iroq qilib tasdiqlaydi. Stol 20 daqiqa saqlanadi. O'z ovqatingiz, tort va ichimliklar olib kirish mumkin emas — tort va bayram uchun hammasini bizdan buyurtma qilsa bo'ladi.",
+            "A 100,000 UZS deposit is required to book. The administrator will call to confirm. We hold the table for 20 minutes. Outside food, cakes and drinks are not allowed — order a cake and everything for the party from us."],
   b_name: ["Как к вам обращаться?", "Ismingiz?", "Your name?"],
   b_day: ["Выберите день:", "Kunni tanlang:", "Choose a day:"],
   b_time: ["Выберите время:", "Vaqtni tanlang:", "Choose a time:"],

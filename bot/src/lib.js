@@ -46,7 +46,7 @@ export const devIds = env => String(env.DEV_IDS || "").split(/[\s,]+/).map(Numbe
 export const SETTINGS = {
   card: ["card_number", "8600 0000 0000 0000 (номер карты уточняется)"],
   card_owner: ["card_owner", "Olim Polvon"],
-  booking_fee: ["booking_fee", ""],          // '' = staff names the price per booking
+  booking_fee: ["booking_fee", "100000"],    // залог за бронь; меняется командой /set booking_fee
   delivery_info: ["delivery_info", "Стоимость доставки назовёт администратор."],
   tables: ["tables", "30"],
 };

@@ -17,6 +17,8 @@ SITE = {
     "phone_href": "+998953434343",
     "delivery": [("+998 90 916 77 74", "+998909167774"), ("+998 97 766 99 88", "+998977669988")],
     "telegram": "https://t.me/olim_polvon",
+    # аккаунты в Telegram для связи (дал владелец 24.11): первый — к +998 97 766 99 88, второй — к +998 90 916 77 74
+    "tg_accounts": [("@olimpolvon", "https://t.me/olimpolvon"), ("@OLIMPOLVONMILLIY", "https://t.me/OLIMPOLVONMILLIY")],
     "bot": "https://t.me/Olim_Polvon_uz_bot",
     # Cloudflare Worker that talks to Gemini (see worker/worker.js). Empty = scripted demo answers.
     "ai_endpoint": "https://olim-ai.abduraxmanov349.workers.dev, https://script.google.com/macros/s/AKfycbxkmkdz8ZMbgoyUpwtY8l7BI0Sy2NJQMWIqTeMwlzC1QqgeDgNm_WckNVfBjjjtVS0F/exec",
@@ -93,7 +95,7 @@ def sum_fmt(n):
     return f"{n:,}".replace(",", " ") + " сум"
 
 # temporarily off the site: no price yet, or the description only says "ask on Telegram"
-HIDDEN = {"Куртоба"}  # waiting for a new photo; keep in sync with make_worker.py
+HIDDEN = {"Куртоба", "Салат «Куш ини»", "Газзакли салат", "Маджнунтол", "Аччик Айсберг", "Хушбуй таъмли лавлаги", "Миллий ассорти", "Евро ассорти", "Паста Болоньезе", "Курица с овощами", "Медальоны с ананасом"}  # waiting for a new photo; keep in sync with make_worker.py
 # MENU: categories with their items, Russian is the build language (uz/en come from i18n)
 MENU = []
 for cid, uz, ru, en in CATS:
@@ -210,7 +212,7 @@ def restaurant_schema():
             {"@type": "OpeningHoursSpecification", "dayOfWeek": list(h[0]), "opens": h[1], "closes": h[2]},
         ],
         "amenityFeature": [{"@type": "LocationFeatureSpecification", "name": n, "value": True} for n in ["Доставка", "Навынос", "Wi-Fi", "Оплата картой"]],
-        "sameAs": [SITE["instagram"], SITE["telegram"], SITE["yandex"]],
+        "sameAs": [SITE["instagram"], SITE["telegram"], SITE["yandex"]] + [u for _, u in SITE["tg_accounts"]],
     }
 
 def menu_schema():
@@ -236,7 +238,7 @@ def crumbs_schema(name, path):
 FAQ = [
     ("Есть ли доставка?", f"Да. Заказать можно по телефонам {SITE['delivery'][0][0]} и {SITE['delivery'][1][0]} или через Telegram-бот @Olim_Polvon_uz_bot."),
     ("Во сколько вы открываетесь?", "Работаем ежедневно с 06:00 до 23:00. С утра — супы и национальные блюда."),
-    ("Бронь стола платная?", "Да, бронь платная. Стоимость администратор назовёт, когда перезвонит подтвердить заявку."),
+    ("Бронь стола платная?", "Да: для брони нужен залог 100 000 сум. Администратор перезвонит, подтвердит заявку и подскажет, как его внести."),
     ("Можно прийти со своим тортом?", "Нет, свою еду, торты и напитки приносить нельзя. Торт и десерты для праздника можно заказать у нас."),
     ("Нужно ли бронировать стол?", "Для компании и на выходные лучше забронировать заранее: через форму на сайте или по телефону."),
     ("Как можно оплатить?", "Наличными, картой, переводом или в рассрочку."),
@@ -757,7 +759,7 @@ contact = head("contact",
       <div class="booking" id="booking">
         <form data-booking novalidate>
           <h2>Забронировать стол</h2>
-          <p class="muted">Бронь платная: стоимость подскажет администратор, когда перезвонит. Держим стол 20 минут.</p>
+          <p class="muted">Для брони нужен залог 100 000 сум. Администратор перезвонит и подтвердит. Держим стол 20 минут.</p>
           <div class="booking-rules"><b>Правила брони</b><ul><li>Свою еду, торты и напитки приносить нельзя.</li><li>Торт, десерты и всё для праздника можно заказать у нас.</li></ul></div>
           <div class="form-grid">
             <div class="field"><label for="b-name">Имя</label><input id="b-name" name="name" autocomplete="given-name" required><span class="err"></span></div>
@@ -781,7 +783,7 @@ contact = head("contact",
           <h2>Заявка принята</h2>
           <p class="muted" data-success-text></p>
           <p class="co-sync" data-booking-sync>Отправляем заявку…</p>
-          <p class="hint">Бронь платная: стоимость назовёт администратор, когда перезвонит. Статус заявки виден внизу слева на любой странице сайта.</p>
+          <p class="hint">Для брони нужен залог 100 000 сум. Статус заявки виден внизу слева на любой странице сайта.</p>
           <button class="btn btn--ghost" type="button" data-again>Новая заявка</button>
         </div>
       </div>
@@ -790,6 +792,7 @@ contact = head("contact",
         <div class="info-block"><h3>Телефон</h3><p><a href="tel:{SITE['phone_href']}">{SITE['phone']}</a></p></div>
         <div class="info-block"><h3>Часы работы</h3><div class="hours" style="font-size:18px">{"".join(f"<span>{d}</span><span>{t}</span>" for d, t in SITE["hours"])}</div></div>
         <div class="info-block"><h3>Доставка</h3><p>{" · ".join(f'<a href="tel:{h}">{p}</a>' for p, h in SITE["delivery"])}</p></div>
+        <div class="info-block"><h3>Telegram</h3><p>{" · ".join(f'<a href="{u}" target="_blank" rel="noopener">{n}</a>' for n, u in SITE["tg_accounts"])}</p></div>
         <div class="info-block"><h3>Telegram</h3><p><a href="{SITE['bot']}" target="_blank" rel="noopener">@Olim_Polvon_uz_bot — всё меню</a></p></div>
       </aside>
     </div>

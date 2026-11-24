@@ -3,7 +3,7 @@ The API key never reaches the browser: it lives in the Worker as the secret AI_K
 import json, pathlib
 from menu_data import CATS, UNITS, ITEMS
 
-HIDDEN = {"Куртоба"}  # keep in sync with build.py
+HIDDEN = {"Куртоба", "Салат «Куш ини»", "Газзакли салат", "Маджнунтол", "Аччик Айсберг", "Хушбуй таъмли лавлаги", "Миллий ассорти", "Евро ассорти", "Паста Болоньезе", "Курица с овощами", "Медальоны с ананасом"}  # keep in sync with build.py
 cat_ru = {c[0]: c[2] for c in CATS}
 lines = []
 for cid, uz, ru, en in CATS:

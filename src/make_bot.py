@@ -4,7 +4,7 @@ Never edit menu.gen.js by hand: change menu_data.py and run src/build.sh."""
 import json, pathlib
 from menu_data import CATS, UNITS, ITEMS
 
-HIDDEN = {"Куртоба"}  # keep in sync with build.py and make_worker.py
+HIDDEN = {"Куртоба", "Салат «Куш ини»", "Газзакли салат", "Маджнунтол", "Аччик Айсберг", "Хушбуй таъмли лавлаги", "Миллий ассорти", "Евро ассорти", "Паста Болоньезе", "Курица с овощами", "Медальоны с ананасом"}  # keep in sync with build.py and make_worker.py
 ROOT = pathlib.Path(__file__).parent
 MENU_DIR = ROOT / "assets" / "menu"
 TG_DIR = ROOT.parent / "assets" / "menu" / "tg"  # published straight to the site root (GitHub Pages)
